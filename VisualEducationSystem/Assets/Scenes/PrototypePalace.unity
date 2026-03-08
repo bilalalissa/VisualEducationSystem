@@ -201,6 +201,7 @@ GameObject:
   - component: {fileID: 3011}
   - component: {fileID: 3012}
   - component: {fileID: 3013}
+  - component: {fileID: 3014}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -264,6 +265,19 @@ MonoBehaviour:
   moveSpeed: 5
   lookSensitivity: 0.12
   gravity: -20
+--- !u!114 &3014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d1cc0cdf7f342b2a9d512a6f3c2fb9e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  roomHud: {fileID: 3022}
 --- !u!1 &3020
 GameObject:
   m_ObjectHideFlags: 0
@@ -273,6 +287,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3021}
+  - component: {fileID: 3022}
   m_Layer: 0
   m_Name: UI Canvas
   m_TagString: Untagged
@@ -295,6 +310,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eef3a7335c474d6c8991a166b8e1ae25, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &3030
 GameObject:
   m_ObjectHideFlags: 0
