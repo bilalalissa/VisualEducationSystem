@@ -15,19 +15,19 @@ namespace VisualEducationSystem.Rooms
 
         private void BuildGreybox()
         {
-            BuildRoom("EntryHall", "Entry Hall", new Vector3(0f, 1.5f, 0f), new Vector3(10f, 3f, 10f), new Color(0.18f, 0.3f, 0.62f), false, true);
-            BuildRoom("Room01Box", "Room 01", new Vector3(14f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.78f, 0.36f, 0.24f), true, true);
-            BuildRoom("Room02Box", "Room 02", new Vector3(28f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.18f, 0.58f, 0.3f), true, true);
-            BuildRoom("Room03Box", "Room 03", new Vector3(42f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.6f, 0.24f, 0.64f), true, false);
+            BuildRoom("EntryHall", "Entry Hall", new Vector3(0f, 1.5f, 0f), new Vector3(12f, 3f, 12f), new Color(0.18f, 0.3f, 0.62f), false, true, true, true);
+            BuildRoom("Room01Box", "Room 01", new Vector3(14f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.78f, 0.36f, 0.24f), true, false, false, false);
+            BuildRoom("Room02Box", "Room 02", new Vector3(0f, 1.5f, 14f), new Vector3(8f, 3f, 8f), new Color(0.18f, 0.58f, 0.3f), false, false, false, true);
+            BuildRoom("Room03Box", "Room 03", new Vector3(0f, 1.5f, -14f), new Vector3(8f, 3f, 8f), new Color(0.6f, 0.24f, 0.64f), false, false, true, false);
 
-            BuildConnector("LinkEntryTo01", new Vector3(7f, 0.1f, 0f), new Vector3(4f, 0.2f, 4f));
-            BuildConnector("Link01To02", new Vector3(21f, 0.1f, 0f), new Vector3(6f, 0.2f, 4f));
-            BuildConnector("Link02To03", new Vector3(35f, 0.1f, 0f), new Vector3(6f, 0.2f, 4f));
+            BuildConnector("LinkEntryTo01", new Vector3(8f, 0.1f, 0f), new Vector3(4f, 0.2f, 4f));
+            BuildConnector("LinkEntryTo02", new Vector3(0f, 0.1f, 8f), new Vector3(4f, 0.2f, 4f));
+            BuildConnector("LinkEntryTo03", new Vector3(0f, 0.1f, -8f), new Vector3(4f, 0.2f, 4f));
 
             if (player != null)
             {
-                player.position = new Vector3(0f, 1.1f, -4f);
-                player.rotation = Quaternion.identity;
+                player.position = new Vector3(-2f, 1.1f, 0f);
+                player.rotation = Quaternion.Euler(0f, 90f, 0f);
             }
         }
 
@@ -38,7 +38,9 @@ namespace VisualEducationSystem.Rooms
             Vector3 size,
             Color color,
             bool openWest,
-            bool openEast)
+            bool openEast,
+            bool openNorth,
+            bool openSouth)
         {
             if (transform.Find(name) != null)
             {
@@ -50,8 +52,8 @@ namespace VisualEducationSystem.Rooms
 
             CreateCube(roomRoot, "Floor", center + new Vector3(0f, -1.5f, 0f), new Vector3(size.x, 0.2f, size.z), color * 0.8f);
             CreateCube(roomRoot, "Ceiling", center + new Vector3(0f, 1.5f, 0f), new Vector3(size.x, 0.2f, size.z), color * 0.65f);
-            CreateCube(roomRoot, "WallNorth", center + new Vector3(0f, 0f, size.z / 2f), new Vector3(size.x, size.y, 0.2f), color);
-            CreateCube(roomRoot, "WallSouth", center + new Vector3(0f, 0f, -size.z / 2f), new Vector3(size.x, size.y, 0.2f), color);
+            CreateFrontBackWall(roomRoot, "WallNorth", center, size, color, true, openNorth);
+            CreateFrontBackWall(roomRoot, "WallSouth", center, size, color, false, openSouth);
             CreateSideWall(roomRoot, "WallEast", center, size, color, true, openEast);
             CreateSideWall(roomRoot, "WallWest", center, size, color, false, openWest);
 
@@ -62,6 +64,31 @@ namespace VisualEducationSystem.Rooms
 
             var roomZone = roomRoot.gameObject.AddComponent<RoomZone>();
             roomZone.SetDisplayName(displayName);
+        }
+
+        private static void CreateFrontBackWall(
+            Transform parent,
+            string name,
+            Vector3 center,
+            Vector3 size,
+            Color color,
+            bool northSide,
+            bool hasOpening)
+        {
+            float wallZ = northSide ? center.z + size.z / 2f : center.z - size.z / 2f;
+
+            if (!hasOpening)
+            {
+                CreateCube(parent, name, new Vector3(center.x, center.y, wallZ), new Vector3(size.x, size.y, 0.2f), color);
+                return;
+            }
+
+            float sideX = size.x * 0.18f;
+            float sideOffset = size.x * 0.41f;
+            CreateCube(parent, $"{name}_East", new Vector3(center.x + sideOffset, center.y, wallZ), new Vector3(sideX, size.y, 0.2f), color);
+            CreateCube(parent, $"{name}_West", new Vector3(center.x - sideOffset, center.y, wallZ), new Vector3(sideX, size.y, 0.2f), color);
+            CreateCube(parent, $"{name}_FrameEast", new Vector3(center.x + 1.65f, center.y, wallZ + (northSide ? -0.15f : 0.15f)), new Vector3(0.18f, size.y, 0.2f), Color.white);
+            CreateCube(parent, $"{name}_FrameWest", new Vector3(center.x - 1.65f, center.y, wallZ + (northSide ? -0.15f : 0.15f)), new Vector3(0.18f, size.y, 0.2f), Color.white);
         }
 
         private static void CreateSideWall(
