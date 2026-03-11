@@ -16,7 +16,7 @@ namespace VisualEducationSystem.UI
         private void OnGUI()
         {
             GUI.Box(labelRect, $"Current Room: {currentRoomName}");
-            GUI.Box(helpRect, "Move with WASD, look with mouse, press Esc for menu.\nWalk through the wall openings to move from Entry Hall to Room 01, Room 02, and Room 03.");
+            GUI.Box(helpRect, "Move with WASD, look with mouse, press Esc for menu.\nPress E to edit the current room's name and color.\nWalk through the wall openings to move from Entry Hall to Room 01, Room 02, and Room 03.");
         }
     }
 }

@@ -7,6 +7,7 @@ namespace VisualEducationSystem.Rooms
     public sealed class PlayerRoomTracker : MonoBehaviour
     {
         [SerializeField] private CurrentRoomHUD roomHud = null!;
+        public RoomInstance? CurrentRoom { get; private set; }
 
         private void Start()
         {
@@ -24,7 +25,16 @@ namespace VisualEducationSystem.Rooms
                 return;
             }
 
-            roomHud.SetCurrentRoom(roomZone.RoomDisplayName);
+            SetCurrentRoom(roomZone.RoomInstance, roomZone.RoomDisplayName);
+        }
+
+        public void SetCurrentRoom(RoomInstance? roomInstance, string displayName)
+        {
+            CurrentRoom = roomInstance;
+            if (roomHud != null)
+            {
+                roomHud.SetCurrentRoom(displayName);
+            }
         }
     }
 }

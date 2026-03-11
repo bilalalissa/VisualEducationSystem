@@ -10,6 +10,11 @@ namespace VisualEducationSystem.Core
 
         private void Update()
         {
+            if (UI.RoomEditorController.IsAnyEditorOpen)
+            {
+                return;
+            }
+
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 SceneManager.LoadScene(menuSceneName);

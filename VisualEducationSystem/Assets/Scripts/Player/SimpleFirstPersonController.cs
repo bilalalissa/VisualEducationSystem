@@ -14,6 +14,7 @@ namespace VisualEducationSystem.Player
         private Camera playerCamera = null!;
         private float verticalVelocity;
         private float pitch;
+        private bool inputEnabled = true;
 
         private void Awake()
         {
@@ -23,14 +24,32 @@ namespace VisualEducationSystem.Player
 
         private void OnEnable()
         {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            SetCursorLockState();
         }
 
         private void OnDisable()
         {
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+        }
+
+        public void SetInputEnabled(bool enabled)
+        {
+            inputEnabled = enabled;
+            SetCursorLockState();
+        }
+
+        public void TeleportTo(Vector3 worldPosition, Quaternion worldRotation)
+        {
+            controller.enabled = false;
+            transform.SetPositionAndRotation(worldPosition, worldRotation);
+            pitch = 0f;
+            if (playerCamera != null)
+            {
+                playerCamera.transform.localRotation = Quaternion.identity;
+            }
+            verticalVelocity = 0f;
+            controller.enabled = true;
         }
 
         private void Update()
@@ -40,8 +59,19 @@ namespace VisualEducationSystem.Player
                 return;
             }
 
+            if (!inputEnabled)
+            {
+                return;
+            }
+
             UpdateLook();
             UpdateMove();
+        }
+
+        private void SetCursorLockState()
+        {
+            Cursor.lockState = inputEnabled ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !inputEnabled;
         }
 
         private void EnsureCamera()
