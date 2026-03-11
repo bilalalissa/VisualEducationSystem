@@ -2,18 +2,23 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using VisualEducationSystem.Player;
 using VisualEducationSystem.Rooms;
+using VisualEducationSystem.Save;
 
 namespace VisualEducationSystem.UI
 {
     public sealed class RoomEditorController : MonoBehaviour
     {
+        private const string EntryHallRoomId = "EntryHall";
+
         [SerializeField] private PlayerRoomTracker roomTracker = null!;
         [SerializeField] private SimpleFirstPersonController playerController = null!;
         [SerializeField] private PrototypePalaceBootstrap palaceBootstrap = null!;
 
         private bool isOpen;
+        private string draftPalaceName = string.Empty;
         private string draftName = string.Empty;
         private Color draftColor = Color.white;
+        private string editorStatus = string.Empty;
         private Vector2 scrollPosition;
         public static bool IsAnyEditorOpen { get; private set; }
 
@@ -49,6 +54,13 @@ namespace VisualEducationSystem.UI
             GUILayout.Label($"Editing: {roomTracker.CurrentRoom.RoomDisplayName}");
             GUILayout.Space(10f);
 
+            if (roomTracker.CurrentRoom.RoomId == EntryHallRoomId)
+            {
+                GUILayout.Label("Palace Name");
+                draftPalaceName = GUILayout.TextField(draftPalaceName, 40);
+                GUILayout.Space(10f);
+            }
+
             GUILayout.Label("Room Name");
             draftName = GUILayout.TextField(draftName, 32);
 
@@ -64,12 +76,12 @@ namespace VisualEducationSystem.UI
 
             if (GUILayout.Button("Apply Changes", GUILayout.Height(34f)))
             {
-                ApplyCurrentDraft();
+                ApplyAndSaveCurrentDraft();
             }
 
             GUILayout.Space(8f);
 
-            if (roomTracker.CurrentRoom.RoomDisplayName == "Entry Hall")
+            if (roomTracker.CurrentRoom.RoomId == EntryHallRoomId)
             {
                 var canAddRoom = palaceBootstrap != null && palaceBootstrap.CanAddRoomFromEntryHall;
                 GUI.enabled = canAddRoom;
@@ -77,10 +89,18 @@ namespace VisualEducationSystem.UI
                 if (GUILayout.Button("Add Room From Entry Hall", GUILayout.Height(34f)))
                 {
                     palaceBootstrap.TryAddRoomFromEntryHall();
+                    PalaceSaveManager.SaveCurrentState();
+                    editorStatus = string.Empty;
                 }
 
                 GUI.enabled = true;
                 GUILayout.Label(canAddRoom ? "Adds a new branch room from the main hall." : "No more branch slots available in the main hall.");
+                GUILayout.Space(8f);
+            }
+
+            if (!string.IsNullOrWhiteSpace(editorStatus))
+            {
+                GUILayout.Label(editorStatus, GUI.skin.box, GUILayout.Height(44f));
                 GUILayout.Space(8f);
             }
 
@@ -92,7 +112,7 @@ namespace VisualEducationSystem.UI
             GUILayout.EndScrollView();
             GUILayout.EndArea();
 
-            ApplyCurrentDraft();
+            ApplyDraftPreview();
         }
 
         private void ToggleEditor()
@@ -111,8 +131,10 @@ namespace VisualEducationSystem.UI
 
             isOpen = true;
             IsAnyEditorOpen = true;
+            draftPalaceName = PalaceSessionState.CurrentPalaceName;
             draftName = currentRoom.RoomDisplayName;
             draftColor = currentRoom.AccentColor;
+            editorStatus = string.Empty;
             playerController.SetInputEnabled(false);
         }
 
@@ -120,10 +142,11 @@ namespace VisualEducationSystem.UI
         {
             isOpen = false;
             IsAnyEditorOpen = false;
+            editorStatus = string.Empty;
             playerController.SetInputEnabled(true);
         }
 
-        private void ApplyCurrentDraft()
+        private void ApplyAndSaveCurrentDraft()
         {
             var currentRoom = roomTracker.CurrentRoom;
             if (currentRoom == null)
@@ -131,9 +154,42 @@ namespace VisualEducationSystem.UI
                 return;
             }
 
+            if (currentRoom.RoomId == EntryHallRoomId)
+            {
+                if (!PalaceSaveManager.IsPalaceNameAvailable(draftPalaceName, PalaceSessionState.CurrentPalaceId))
+                {
+                    editorStatus = "Choose a unique palace name.";
+                    return;
+                }
+
+                PalaceSessionState.SetCurrentPalaceName(draftPalaceName);
+            }
+
+            if (!PalaceSessionState.IsRoomDisplayNameAvailable(draftName, currentRoom.RoomId))
+            {
+                editorStatus = "Choose a unique room name.";
+                return;
+            }
+
             currentRoom.SetDisplayName(draftName);
             currentRoom.ApplyAccentColor(draftColor);
             roomTracker.SetCurrentRoom(currentRoom, currentRoom.RoomDisplayName);
+            roomTracker.RefreshHud();
+            PalaceSaveManager.SaveCurrentState();
+            editorStatus = "Changes saved.";
+        }
+
+        private void ApplyDraftPreview()
+        {
+            var currentRoom = roomTracker.CurrentRoom;
+            if (currentRoom == null)
+            {
+                return;
+            }
+
+            currentRoom.ApplyAccentColor(draftColor);
+            roomTracker.SetCurrentRoom(currentRoom, currentRoom.RoomDisplayName);
+            roomTracker.RefreshHud();
         }
     }
 }

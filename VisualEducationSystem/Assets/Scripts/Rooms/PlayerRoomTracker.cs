@@ -13,6 +13,7 @@ namespace VisualEducationSystem.Rooms
         {
             if (roomHud != null)
             {
+                roomHud.SetCurrentPalace(PalaceSessionState.CurrentPalaceName);
                 roomHud.SetCurrentRoom("Entry Hall");
             }
         }
@@ -33,8 +34,20 @@ namespace VisualEducationSystem.Rooms
             CurrentRoom = roomInstance;
             if (roomHud != null)
             {
+                roomHud.SetCurrentPalace(PalaceSessionState.CurrentPalaceName);
                 roomHud.SetCurrentRoom(displayName);
             }
+        }
+
+        public void RefreshHud()
+        {
+            if (roomHud == null)
+            {
+                return;
+            }
+
+            roomHud.SetCurrentPalace(PalaceSessionState.CurrentPalaceName);
+            roomHud.SetCurrentRoom(CurrentRoom != null ? CurrentRoom.RoomDisplayName : "Entry Hall");
         }
     }
 }

@@ -36,6 +36,7 @@ namespace VisualEducationSystem.Rooms
             room01.AttachEntranceSign(room01Sign.textMesh, room01Sign.plateRenderer);
             room02.AttachEntranceSign(room02Sign.textMesh, room02Sign.plateRenderer);
             room03.AttachEntranceSign(room03Sign.textMesh, room03Sign.plateRenderer);
+            BuildEntryHallLandmark();
 
             hasWestBranchRoom = false;
             if (PalaceSessionState.HasWestBranchRoom)
@@ -48,6 +49,108 @@ namespace VisualEducationSystem.Rooms
             playerRoomTracker?.SetCurrentRoom(entryHall, entryHall.RoomDisplayName);
         }
 
+        private void BuildEntryHallLandmark()
+        {
+            const string landmarkName = "EntryHallLandmark";
+            var existing = transform.Find(landmarkName);
+            if (existing != null)
+            {
+                return;
+            }
+
+            var root = new GameObject(landmarkName).transform;
+            root.SetParent(transform);
+            root.position = new Vector3(0f, 0f, 0f);
+            root.localScale = new Vector3(0.52f, 0.52f, 0.52f);
+
+            var hash = string.IsNullOrWhiteSpace(PalaceSessionState.CurrentPalaceId)
+                ? 0
+                : Mathf.Abs(PalaceSessionState.CurrentPalaceId.GetHashCode());
+
+            var palette = new[]
+            {
+                new Color(0.87f, 0.36f, 0.23f),
+                new Color(0.22f, 0.62f, 0.36f),
+                new Color(0.22f, 0.48f, 0.82f),
+                new Color(0.70f, 0.32f, 0.72f),
+                new Color(0.82f, 0.70f, 0.24f),
+                new Color(0.20f, 0.74f, 0.74f)
+            };
+
+            var primaryColor = palette[hash % palette.Length];
+            var secondaryColor = palette[(hash / 7 + 2) % palette.Length];
+            var fountainColor = Color.Lerp(primaryColor, Color.white, 0.45f);
+            var highlightColor = Color.Lerp(secondaryColor, Color.white, 0.65f);
+            var landmarkFamily = hash % 4;
+            switch (landmarkFamily)
+            {
+                case 0:
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkBase", new Vector3(0f, 0.12f, 0f), new Vector3(3f, 0.24f, 3f), primaryColor * 0.42f);
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkBasinOuter", new Vector3(0f, 0.34f, 0f), new Vector3(2.1f, 0.22f, 2.1f), secondaryColor * 0.9f);
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkBasinInner", new Vector3(0f, 0.43f, 0f), new Vector3(1.55f, 0.06f, 1.55f), fountainColor);
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkPedestal", new Vector3(0f, 1.02f, 0f), new Vector3(0.52f, 1.1f, 0.52f), primaryColor * 0.9f);
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkSpire", new Vector3(0f, 2.15f, 0f), new Vector3(0.16f, 1.15f, 0.16f), highlightColor);
+                    CreatePrimitive(root, PrimitiveType.Sphere, "LandmarkCrown", new Vector3(0f, 3.2f, 0f), new Vector3(0.95f, 0.95f, 0.95f), highlightColor);
+                    break;
+                case 1:
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkBase", new Vector3(0f, 0.15f, 0f), new Vector3(3.1f, 0.3f, 3.1f), secondaryColor * 0.45f);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkCore", new Vector3(0f, 0.85f, 0f), new Vector3(1.2f, 1.2f, 1.2f), primaryColor);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkTop", new Vector3(0f, 1.95f, 0f), new Vector3(0.8f, 0.8f, 0.8f), highlightColor);
+                    CreatePrimitive(root, PrimitiveType.Capsule, "LandmarkNorth", new Vector3(0f, 1.1f, 1.15f), new Vector3(0.28f, 1.25f, 0.28f), fountainColor);
+                    CreatePrimitive(root, PrimitiveType.Capsule, "LandmarkSouth", new Vector3(0f, 1.1f, -1.15f), new Vector3(0.28f, 1.25f, 0.28f), fountainColor);
+                    CreatePrimitive(root, PrimitiveType.Capsule, "LandmarkEast", new Vector3(1.15f, 1.1f, 0f), new Vector3(0.28f, 1.25f, 0.28f), fountainColor);
+                    CreatePrimitive(root, PrimitiveType.Capsule, "LandmarkWest", new Vector3(-1.15f, 1.1f, 0f), new Vector3(0.28f, 1.25f, 0.28f), fountainColor);
+                    break;
+                case 2:
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkRingBase", new Vector3(0f, 0.12f, 0f), new Vector3(3.1f, 0.24f, 3.1f), primaryColor * 0.38f);
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkPillarCenter", new Vector3(0f, 1.45f, 0f), new Vector3(0.35f, 1.65f, 0.35f), highlightColor);
+                    for (var i = 0; i < 3; i++)
+                    {
+                        var angle = 120f * i - 30f;
+                        var offset = Quaternion.Euler(0f, angle, 0f) * Vector3.forward * 1.35f;
+                        CreatePrimitive(root, PrimitiveType.Cylinder, $"LandmarkTriPillar_{i}", new Vector3(offset.x, 1f, offset.z), new Vector3(0.28f, 1.1f, 0.28f), secondaryColor);
+                        CreatePrimitive(root, PrimitiveType.Sphere, $"LandmarkTriNode_{i}", new Vector3(offset.x, 2.2f, offset.z), new Vector3(0.55f, 0.55f, 0.55f), primaryColor);
+                    }
+                    CreatePrimitive(root, PrimitiveType.Capsule, "LandmarkCap", new Vector3(0f, 3.05f, 0f), new Vector3(0.7f, 0.95f, 0.7f), fountainColor);
+                    break;
+                default:
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkBase", new Vector3(0f, 0.12f, 0f), new Vector3(2.9f, 0.24f, 2.9f), primaryColor * 0.35f);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkArchLeft", new Vector3(-0.95f, 1.2f, 0f), new Vector3(0.35f, 2.1f, 0.6f), secondaryColor);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkArchRight", new Vector3(0.95f, 1.2f, 0f), new Vector3(0.35f, 2.1f, 0.6f), secondaryColor);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkArchTop", new Vector3(0f, 2.2f, 0f), new Vector3(2.2f, 0.35f, 0.6f), secondaryColor);
+                    CreatePrimitive(root, PrimitiveType.Cylinder, "LandmarkCenterColumn", new Vector3(0f, 1.05f, 0f), new Vector3(0.32f, 1.15f, 0.32f), primaryColor);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkGem", new Vector3(0f, 1.45f, 0f), new Vector3(0.72f, 0.72f, 0.72f), highlightColor).transform.localRotation = Quaternion.Euler(0f, 45f, 45f);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkBenchNorth", new Vector3(0f, 0.45f, 1.15f), new Vector3(1.35f, 0.2f, 0.3f), fountainColor);
+                    CreatePrimitive(root, PrimitiveType.Cube, "LandmarkBenchSouth", new Vector3(0f, 0.45f, -1.15f), new Vector3(1.35f, 0.2f, 0.3f), fountainColor);
+                    break;
+            }
+
+            var palaceNameAnchor = new GameObject("PalaceNameAnchor").transform;
+            palaceNameAnchor.SetParent(root);
+            palaceNameAnchor.localPosition = new Vector3(0f, 4.2f, 0f);
+            palaceNameAnchor.gameObject.AddComponent<FaceCameraYawOnly>();
+
+            var plaque = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            plaque.name = "PalaceNamePlaque";
+            plaque.transform.SetParent(palaceNameAnchor);
+            plaque.transform.localPosition = Vector3.zero;
+            plaque.transform.localScale = new Vector3(2.2f, 0.55f, 0.08f);
+            plaque.GetComponent<Renderer>().sharedMaterial = CreateMaterial(new Color(0.06f, 0.08f, 0.14f));
+            Destroy(plaque.GetComponent<Collider>());
+
+            var plaqueTextObject = new GameObject("PalaceNameText");
+            plaqueTextObject.transform.SetParent(palaceNameAnchor);
+            plaqueTextObject.transform.localPosition = new Vector3(0f, 0f, 0.08f);
+            plaqueTextObject.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            var plaqueText = plaqueTextObject.AddComponent<TextMesh>();
+            plaqueText.text = PalaceSessionState.CurrentPalaceName;
+            plaqueText.fontSize = 34;
+            plaqueText.characterSize = 0.07f;
+            plaqueText.anchor = TextAnchor.MiddleCenter;
+            plaqueText.alignment = TextAlignment.Center;
+            plaqueText.color = Color.white;
+        }
+
         public void TryAddRoomFromEntryHall()
         {
             if (!CanAddRoomFromEntryHall)
@@ -56,6 +159,12 @@ namespace VisualEducationSystem.Rooms
             }
 
             var roomName = $"Room {nextDynamicRoomIndex:00}";
+            while (!PalaceSessionState.IsRoomDisplayNameAvailable(roomName))
+            {
+                nextDynamicRoomIndex++;
+                roomName = $"Room {nextDynamicRoomIndex:00}";
+            }
+
             var dynamicRoom = BuildRoom("Room04Box", roomName, new Vector3(-14f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.76f, 0.66f, 0.24f), false, true, false, false);
             BuildConnector("LinkEntryTo04", new Vector3(-8f, 0.1f, 0f), new Vector3(4f, 0.2f, 4f));
             var room04Sign = BuildEntranceLabel("LabelRoom04", roomName, new Vector3(-4.65f, 1.65f, 0f), Quaternion.Euler(0f, -90f, 0f), new Color(0.76f, 0.66f, 0.24f), IconShape.Square, true);
@@ -306,6 +415,18 @@ namespace VisualEducationSystem.Rooms
 
             var renderer = bridge.GetComponent<Renderer>();
             renderer.sharedMaterial = CreateMaterial(new Color(0.24f, 0.24f, 0.27f));
+        }
+
+        private static GameObject CreatePrimitive(Transform parent, PrimitiveType primitiveType, string name, Vector3 position, Vector3 scale, Color color)
+        {
+            var primitive = GameObject.CreatePrimitive(primitiveType);
+            primitive.name = name;
+            primitive.transform.SetParent(parent);
+            primitive.transform.localPosition = position;
+            primitive.transform.localScale = scale;
+            primitive.GetComponent<Renderer>().sharedMaterial = CreateMaterial(color);
+            Destroy(primitive.GetComponent<Collider>());
+            return primitive;
         }
 
         private static Renderer CreateCube(Transform parent, string name, Vector3 position, Vector3 scale, Color color)
