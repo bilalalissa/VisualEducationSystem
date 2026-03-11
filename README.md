@@ -61,7 +61,11 @@ The current playable prototype includes:
 
 ## Demo Video
 
-Saved demo recording:
+Quick preview:
+
+![Demo Preview](./docs/assets/demo-preview.gif)
+
+Full demo recording:
 
 - [VES-Memory-Palace-Phase-2-Mar-11-Demo.mov](./VES-Memory-Palace-Phase-2-Mar-11-Demo.mov)
 
@@ -96,7 +100,8 @@ submitted/
 │   ├── Storyboard-Concept-Notes.md
 │   ├── Submission-Summary.md
 │   └── assets/
-│       └── Gantt-Plan.png
+│       ├── Gantt-Plan.png
+│       └── demo-preview.gif
 └── VisualEducationSystem/
     ├── Assets/
     │   ├── Scenes/
