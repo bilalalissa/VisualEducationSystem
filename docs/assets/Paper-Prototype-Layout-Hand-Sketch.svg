@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs>
+    <filter id="roughen" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.8"/>
+    </filter>
+    <style>
+      .ink { stroke: #233142; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .note { font-family: "Comic Sans MS", "Marker Felt", "Chalkboard SE", cursive; fill: #233142; }
+      .small { font-size: 18px; }
+      .body { font-size: 24px; }
+      .title { font-size: 34px; font-weight: 700; }
+      .room { font-size: 26px; font-weight: 700; fill: #ffffff; }
+      .roomsub { font-size: 18px; fill: #ffffff; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="900" fill="#f5eedf"/>
+  <rect x="24" y="24" width="1152" height="852" rx="24" fill="#fbf6ea" stroke="#bcae95" stroke-width="4" filter="url(#roughen)"/>
+
+  <path d="M50 112 C210 82, 320 82, 390 96" class="ink" filter="url(#roughen)"/>
+  <text x="62" y="76" class="note title">Visual Education</text>
+  <text x="62" y="110" class="note title">System</text>
+  <text x="64" y="154" class="note body">Paper Prototype Layout</text>
+  <text x="64" y="192" class="note small">Low-fidelity plan for Meeting #2</text>
+  <text x="64" y="214" class="note small">Layout, room identity, and user flow</text>
+
+  <rect x="432" y="46" width="342" height="54" rx="18" fill="#efe1c9" stroke="#9c8a70" stroke-width="3" filter="url(#roughen)"/>
+  <text x="603" y="80" text-anchor="middle" class="note body" style="font-weight:700;">Palace Layout Sketch</text>
+
+  <path d="M74 266 C156 252, 252 252, 346 266" class="ink" stroke-dasharray="8 10" filter="url(#roughen)"/>
+  <rect x="66" y="278" width="286" height="106" rx="18" fill="#fffdf7" stroke="#233142" stroke-width="3" filter="url(#roughen)"/>
+  <text x="209" y="320" text-anchor="middle" class="note body" style="font-weight:700;">Title / Notes</text>
+  <text x="209" y="350" text-anchor="middle" class="note small">Header explains the paper prototype</text>
+
+  <rect x="430" y="292" width="350" height="214" rx="22" fill="#3b67a6" stroke="#233142" stroke-width="5" filter="url(#roughen)"/>
+  <text x="605" y="360" text-anchor="middle" class="note" style="font-size:36px;font-weight:700;fill:#ffffff;">ENTRY HALL</text>
+  <text x="605" y="400" text-anchor="middle" class="note roomsub">Palace name plaque</text>
+  <text x="605" y="432" text-anchor="middle" class="note roomsub">Central landmark</text>
+  <text x="605" y="464" text-anchor="middle" class="note roomsub">Edit palace name</text>
+
+  <rect x="862" y="326" width="210" height="150" rx="18" fill="#c46c47" stroke="#233142" stroke-width="4" filter="url(#roughen)"/>
+  <text x="967" y="384" text-anchor="middle" class="note room">ROOM 01</text>
+  <text x="967" y="417" text-anchor="middle" class="note roomsub">Circle icon</text>
+
+  <rect x="492" y="116" width="220" height="154" rx="18" fill="#468a57" stroke="#233142" stroke-width="4" filter="url(#roughen)"/>
+  <text x="602" y="174" text-anchor="middle" class="note room">ROOM 02</text>
+  <text x="602" y="207" text-anchor="middle" class="note roomsub">Triangle icon</text>
+
+  <rect x="492" y="592" width="220" height="154" rx="18" fill="#8051a7" stroke="#233142" stroke-width="4" filter="url(#roughen)"/>
+  <text x="602" y="650" text-anchor="middle" class="note room">ROOM 03</text>
+  <text x="602" y="683" text-anchor="middle" class="note roomsub">Diamond icon</text>
+
+  <rect x="128" y="324" width="218" height="154" rx="18" fill="#ceb84d" stroke="#233142" stroke-width="4" stroke-dasharray="12 10" filter="url(#roughen)"/>
+  <text x="237" y="382" text-anchor="middle" class="note room">ROOM 04</text>
+  <text x="237" y="415" text-anchor="middle" class="note roomsub">Added from hall</text>
+
+  <path d="M780 400 C808 398, 832 401, 860 400" class="ink" filter="url(#roughen)"/>
+  <path d="M603 292 C601 282, 602 276, 603 268" class="ink" filter="url(#roughen)"/>
+  <path d="M603 506 C604 536, 603 562, 603 592" class="ink" filter="url(#roughen)"/>
+  <path d="M430 400 C390 400, 365 400, 346 400" class="ink" stroke-dasharray="12 10" filter="url(#roughen)"/>
+
+  <rect x="876" y="214" width="250" height="84" rx="16" fill="#fffdf7" stroke="#233142" stroke-width="3" filter="url(#roughen)"/>
+  <text x="1001" y="248" text-anchor="middle" class="note body" style="font-weight:700;">Identity Cues</text>
+  <text x="1001" y="276" text-anchor="middle" class="note small">Names, colors, signs, icons</text>
+
+  <rect x="820" y="534" width="304" height="120" rx="16" fill="#fffdf7" stroke="#233142" stroke-width="3" filter="url(#roughen)"/>
+  <text x="972" y="572" text-anchor="middle" class="note body" style="font-weight:700;">Prototype Questions</text>
+  <text x="972" y="602" text-anchor="middle" class="note small">Can players orient quickly?</text>
+  <text x="972" y="626" text-anchor="middle" class="note small">Do room cues stay memorable?</text>
+
+  <text x="94" y="748" class="note body" style="font-weight:700;">Player Flow</text>
+  <rect x="90" y="770" width="1020" height="96" rx="18" fill="#fffdf7" stroke="#233142" stroke-width="3" filter="url(#roughen)"/>
+  <text x="600" y="808" text-anchor="middle" class="note small">create/load palace -> orient in Entry Hall -> explore rooms</text>
+  <text x="600" y="838" text-anchor="middle" class="note small">press E to edit -> save -> reload to verify persistence</text>
+
+  <path d="M104 720 C164 708, 226 706, 292 716" class="ink" stroke-dasharray="5 11" filter="url(#roughen)"/>
+  <text x="308" y="720" class="note small">rough worksheet style</text>
+</svg>

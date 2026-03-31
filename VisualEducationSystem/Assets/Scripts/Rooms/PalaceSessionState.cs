@@ -7,28 +7,32 @@ namespace VisualEducationSystem.Rooms
     {
         public readonly struct RoomRecord
         {
-            public RoomRecord(string roomId, string displayName, Color accentColor)
+            public RoomRecord(string roomId, string displayName, Color accentColor, string parentRoomId)
             {
                 RoomId = roomId;
                 DisplayName = displayName;
                 AccentColor = accentColor;
+                ParentRoomId = parentRoomId;
             }
 
             public string RoomId { get; }
             public string DisplayName { get; }
             public Color AccentColor { get; }
+            public string ParentRoomId { get; }
         }
 
         public readonly struct RoomSnapshot
         {
-            public RoomSnapshot(string displayName, Color accentColor)
+            public RoomSnapshot(string displayName, Color accentColor, string parentRoomId)
             {
                 DisplayName = displayName;
                 AccentColor = accentColor;
+                ParentRoomId = parentRoomId;
             }
 
             public string DisplayName { get; }
             public Color AccentColor { get; }
+            public string ParentRoomId { get; }
         }
 
         private static readonly Dictionary<string, RoomSnapshot> Rooms = new();
@@ -48,9 +52,9 @@ namespace VisualEducationSystem.Rooms
             CurrentPalaceName = string.IsNullOrWhiteSpace(palaceName) ? "Untitled Palace" : palaceName.Trim();
         }
 
-        public static void SetRoom(string roomId, string displayName, Color accentColor)
+        public static void SetRoom(string roomId, string displayName, Color accentColor, string parentRoomId = "")
         {
-            Rooms[roomId] = new RoomSnapshot(displayName, accentColor);
+            Rooms[roomId] = new RoomSnapshot(displayName, accentColor, parentRoomId);
         }
 
         public static bool TryGetRoom(string roomId, out RoomSnapshot snapshot)
@@ -86,8 +90,57 @@ namespace VisualEducationSystem.Rooms
         {
             foreach (var pair in Rooms)
             {
-                yield return new RoomRecord(pair.Key, pair.Value.DisplayName, pair.Value.AccentColor);
+                yield return new RoomRecord(pair.Key, pair.Value.DisplayName, pair.Value.AccentColor, pair.Value.ParentRoomId);
             }
+        }
+
+        public static bool HasChildRoom(string parentRoomId)
+        {
+            if (string.IsNullOrWhiteSpace(parentRoomId))
+            {
+                return false;
+            }
+
+            foreach (var room in Rooms)
+            {
+                if (room.Value.ParentRoomId == parentRoomId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool TryGetFirstChildRoomId(string parentRoomId, out string childRoomId)
+        {
+            foreach (var room in Rooms)
+            {
+                if (room.Value.ParentRoomId != parentRoomId)
+                {
+                    continue;
+                }
+
+                childRoomId = room.Key;
+                return true;
+            }
+
+            childRoomId = string.Empty;
+            return false;
+        }
+
+        public static int GetRoomDepth(string roomId)
+        {
+            var depth = 0;
+            var currentRoomId = roomId;
+
+            while (TryGetRoom(currentRoomId, out var snapshot) && !string.IsNullOrWhiteSpace(snapshot.ParentRoomId))
+            {
+                depth++;
+                currentRoomId = snapshot.ParentRoomId;
+            }
+
+            return depth;
         }
 
         public static void Clear()

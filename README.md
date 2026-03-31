@@ -1,11 +1,12 @@
 # Visual Education System
 
-An interactive memory-palace prototype built in Unity. The current build focuses on a navigable central palace hub, editable rooms, named palaces, and simple JSON save/load so the project can demonstrate the core concept required for the March concept/story presentation milestone.
+An interactive memory-palace prototype built in Unity. The current repo now supports Project Meeting #2 by pairing the playable greybox build with submission materials that document iteration, design goals, paper prototyping, and game testing.
 
 ## Index
 
 - [Project Summary](#project-summary)
 - [Current Build](#current-build)
+- [Meeting 2 Submission Docs](#meeting-2-submission-docs)
 - [Core User Flow](#core-user-flow)
 - [Demo Video](#demo-video)
 - [Storyboard And Concept Docs](#storyboard-and-concept-docs)
@@ -19,6 +20,22 @@ An interactive memory-palace prototype built in Unity. The current build focuses
 ## Project Summary
 
 The project explores a digital memory-palace system where a user creates and edits a personalized palace made of named rooms. The design uses strong spatial cues such as branching room layout, room colors, entrance labels, icons, and a unique central landmark so each palace is easier to recognize and remember.
+
+The current repo reflects an iterative production path:
+
+- concept framing around spatial memory and room-based learning
+- greybox layout centered on an orienting Entry Hall
+- room identity through names, colors, and entrance markers
+- user editing through in-game rename and recolor tools
+- persistence through named palace save/load
+- meeting-ready documentation for prototyping and testing
+
+Longer-term product goals beyond the current prototype:
+
+- sub-rooms inside rooms for deeper topic hierarchy
+- memory clues inside rooms, such as images, notes, videos, and files
+- rehearsal or lecturing spaces for practicing memorization
+- VR headset support for a more immersive palace experience
 
 Key goals in the current prototype:
 
@@ -43,6 +60,19 @@ The current playable prototype includes:
 - palace naming and room naming validation
 - named save/load menu with delete support
 - palace-specific center landmark in the Entry Hall
+
+[Back to top](#visual-education-system)
+
+## Meeting 2 Submission Docs
+
+The key submission-facing materials for Project Meeting #2 are:
+
+- [Submission Summary](./docs/Submission-Summary-Full.md)
+- [Game Testing Plan](./docs/Game-Testing-Plan.md)
+- [Engineering Roadmap](./docs/Engineering-Roadmap.md)
+- [Paper Prototype Layout](./docs/assets/Paper-Prototype-Layout.svg)
+- [Repository Recommendations](./docs/Repository-Recommendations.md)
+- [Storyboard Slides PDF](./docs/Storyboard-Concept-Slides.pdf)
 
 [Back to top](#visual-education-system)
 
@@ -75,9 +105,14 @@ Full demo recording:
 
 The main project documentation for presentation and submission is included in this repo:
 
+- [Meeting 2 Submission Summary (Short)](./docs/Submission-Summary.md)
+- [Meeting 2 Submission Summary (Full)](./docs/Submission-Summary-Full.md)
+- [Game Testing Plan](./docs/Game-Testing-Plan.md)
+- [Engineering Roadmap](./docs/Engineering-Roadmap.md)
+- [Paper Prototype Layout](./docs/assets/Paper-Prototype-Layout.svg)
+- [Repository Recommendations](./docs/Repository-Recommendations.md)
 - [Storyboard Slides PDF](./docs/Storyboard-Concept-Slides.pdf)
 - [Presentation Notes](./docs/Storyboard-Concept-Notes.md)
-- [Submission Summary](./docs/Submission-Summary.md)
 
 [Back to top](#visual-education-system)
 
@@ -99,8 +134,13 @@ submitted/
 │   ├── Storyboard-Concept-Slides.pdf
 │   ├── Storyboard-Concept-Notes.md
 │   ├── Submission-Summary.md
+│   ├── Submission-Summary-Full.md
+│   ├── Game-Testing-Plan.md
+│   ├── Engineering-Roadmap.md
+│   ├── Repository-Recommendations.md
 │   └── assets/
 │       ├── Gantt-Plan.png
+│       ├── Paper-Prototype-Layout.svg
 │       └── demo-preview.gif
 └── VisualEducationSystem/
     ├── Assets/
@@ -146,8 +186,11 @@ Not finished yet:
 - polished art pass
 - authored UI canvases instead of all immediate-mode debug UI
 - multi-room branching from sub-rooms
+- in-room memory-clue placement for pictures, notes, videos, and files
+- rehearsal or lecturing room functionality
+- VR-ready interaction and deployment support
 - advanced save slots metadata
-- full assessment/testing package
+- formal playtesting evidence beyond the current meeting plan
 
 [Back to top](#visual-education-system)
 
@@ -155,8 +198,11 @@ Not finished yet:
 
 - refine UI presentation for class/demo use
 - improve visual polish and room theming
-- expand the room-edit loop beyond one extra room
-- add more explicit onboarding and test cases
-- connect the current prototype to final presentation materials
+- expand the room-edit loop beyond one extra room and into sub-rooms
+- add memory-clue systems for images, handwriting-style notes, videos, and files
+- add rehearsal or lecturing spaces for memorization practice
+- investigate VR headset support
+- run and record structured playtests
+- connect the playable prototype to final presentation materials
 
 [Back to top](#visual-education-system)

@@ -98,6 +98,44 @@ namespace VisualEducationSystem.UI
                 GUILayout.Space(8f);
             }
 
+            if (roomTracker.CurrentRoom.RoomId != EntryHallRoomId && palaceBootstrap != null)
+            {
+                var canAddSubRoom = palaceBootstrap.CanAddSubRoom(roomTracker.CurrentRoom);
+                var hasSubRoom = palaceBootstrap.HasSubRoom(roomTracker.CurrentRoom);
+
+                GUI.enabled = canAddSubRoom;
+                if (GUILayout.Button("Add Sub-Room", GUILayout.Height(34f)))
+                {
+                    palaceBootstrap.TryAddSubRoom(roomTracker.CurrentRoom);
+                    PalaceSaveManager.SaveCurrentState();
+                    editorStatus = "Sub-room created.";
+                }
+
+                GUI.enabled = true;
+
+                if (hasSubRoom && GUILayout.Button("Enter Sub-Room", GUILayout.Height(34f)))
+                {
+                    palaceBootstrap.NavigateToChildRoom(roomTracker.CurrentRoom);
+                    CloseEditor();
+                    return;
+                }
+
+                if (palaceBootstrap.CanNavigateToParent(roomTracker.CurrentRoom) && GUILayout.Button("Return To Parent Room", GUILayout.Height(34f)))
+                {
+                    palaceBootstrap.NavigateToParentRoom(roomTracker.CurrentRoom);
+                    CloseEditor();
+                    return;
+                }
+
+                GUILayout.Label(
+                    canAddSubRoom
+                        ? "Create one nested study room inside this room."
+                        : hasSubRoom
+                            ? "This room already has a sub-room."
+                            : "Sub-room creation is unavailable here.");
+                GUILayout.Space(8f);
+            }
+
             if (!string.IsNullOrWhiteSpace(editorStatus))
             {
                 GUILayout.Label(editorStatus, GUI.skin.box, GUILayout.Height(44f));

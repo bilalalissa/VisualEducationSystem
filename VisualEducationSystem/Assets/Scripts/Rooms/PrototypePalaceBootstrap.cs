@@ -1,16 +1,42 @@
+#nullable enable
 using UnityEngine;
+using UnityEngine.Rendering;
 using VisualEducationSystem.UI;
 
 namespace VisualEducationSystem.Rooms
 {
     public sealed class PrototypePalaceBootstrap : MonoBehaviour
     {
+        public readonly struct MapRoomInfo
+        {
+            public MapRoomInfo(string roomId, string displayName, Vector3 center, bool isSubRoom)
+            {
+                RoomId = roomId;
+                DisplayName = displayName;
+                Center = center;
+                IsSubRoom = isSubRoom;
+            }
+
+            public string RoomId { get; }
+            public string DisplayName { get; }
+            public Vector3 Center { get; }
+            public bool IsSubRoom { get; }
+        }
+
+        private const string EntryHallRoomId = "EntryHall";
+        public static PrototypePalaceBootstrap? Instance { get; private set; }
         [SerializeField] private Transform player = null!;
         private PlayerRoomTracker? playerRoomTracker;
         private VisualEducationSystem.Player.SimpleFirstPersonController? playerController;
         private int nextDynamicRoomIndex = 4;
         private bool hasWestBranchRoom;
+        private readonly System.Collections.Generic.Dictionary<string, RoomInstance> roomInstances = new();
         public bool CanAddRoomFromEntryHall => !hasWestBranchRoom;
+
+        private void Awake()
+        {
+            Instance = this;
+        }
 
         private void Start()
         {
@@ -22,10 +48,10 @@ namespace VisualEducationSystem.Rooms
 
         private void BuildGreybox()
         {
-            var entryHall = BuildRoom("EntryHall", "Entry Hall", new Vector3(0f, 1.5f, 0f), new Vector3(12f, 3f, 12f), new Color(0.18f, 0.3f, 0.62f), true, true, true, true);
-            var room01 = BuildRoom("Room01Box", "Room 01", new Vector3(14f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.78f, 0.36f, 0.24f), true, false, false, false);
-            var room02 = BuildRoom("Room02Box", "Room 02", new Vector3(0f, 1.5f, 14f), new Vector3(8f, 3f, 8f), new Color(0.18f, 0.58f, 0.3f), false, false, false, true);
-            var room03 = BuildRoom("Room03Box", "Room 03", new Vector3(0f, 1.5f, -14f), new Vector3(8f, 3f, 8f), new Color(0.6f, 0.24f, 0.64f), false, false, true, false);
+            var entryHall = BuildRoom("EntryHall", "Entry Hall", new Vector3(0f, 1.5f, 0f), new Vector3(12f, 3f, 12f), new Color(0.18f, 0.3f, 0.62f), string.Empty, true, true, true, true);
+            var room01 = BuildRoom("Room01Box", "Room 01", new Vector3(14f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.78f, 0.36f, 0.24f), string.Empty, true, false, false, false);
+            var room02 = BuildRoom("Room02Box", "Room 02", new Vector3(0f, 1.5f, 14f), new Vector3(8f, 3f, 8f), new Color(0.18f, 0.58f, 0.3f), string.Empty, false, false, false, true);
+            var room03 = BuildRoom("Room03Box", "Room 03", new Vector3(0f, 1.5f, -14f), new Vector3(8f, 3f, 8f), new Color(0.6f, 0.24f, 0.64f), string.Empty, false, false, true, false);
 
             BuildConnector("LinkEntryTo01", new Vector3(8f, 0.1f, 0f), new Vector3(4f, 0.2f, 4f));
             BuildConnector("LinkEntryTo02", new Vector3(0f, 0.1f, 8f), new Vector3(4f, 0.2f, 4f));
@@ -43,6 +69,8 @@ namespace VisualEducationSystem.Rooms
             {
                 TryAddRoomFromEntryHall();
             }
+
+            BuildSavedSubRooms();
 
             SpawnPlayerAtEntryHall();
 
@@ -165,13 +193,114 @@ namespace VisualEducationSystem.Rooms
                 roomName = $"Room {nextDynamicRoomIndex:00}";
             }
 
-            var dynamicRoom = BuildRoom("Room04Box", roomName, new Vector3(-14f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.76f, 0.66f, 0.24f), false, true, false, false);
+            var dynamicRoom = BuildRoom("Room04Box", roomName, new Vector3(-14f, 1.5f, 0f), new Vector3(8f, 3f, 8f), new Color(0.76f, 0.66f, 0.24f), string.Empty, false, true, false, false);
             BuildConnector("LinkEntryTo04", new Vector3(-8f, 0.1f, 0f), new Vector3(4f, 0.2f, 4f));
             var room04Sign = BuildEntranceLabel("LabelRoom04", roomName, new Vector3(-4.65f, 1.65f, 0f), Quaternion.Euler(0f, -90f, 0f), new Color(0.76f, 0.66f, 0.24f), IconShape.Square, true);
             dynamicRoom.AttachEntranceSign(room04Sign.textMesh, room04Sign.plateRenderer);
             hasWestBranchRoom = true;
             PalaceSessionState.HasWestBranchRoom = true;
             nextDynamicRoomIndex++;
+        }
+
+        public bool CanAddSubRoom(RoomInstance? room)
+        {
+            return room != null
+                && room.RoomId != EntryHallRoomId
+                && !PalaceSessionState.HasChildRoom(room.RoomId);
+        }
+
+        public bool HasSubRoom(RoomInstance? room)
+        {
+            return room != null && PalaceSessionState.HasChildRoom(room.RoomId);
+        }
+
+        public bool CanNavigateToParent(RoomInstance? room)
+        {
+            return room != null && room.IsSubRoom && roomInstances.ContainsKey(room.ParentRoomId);
+        }
+
+        public void TryAddSubRoom(RoomInstance? parentRoom)
+        {
+            if (!CanAddSubRoom(parentRoom))
+            {
+                return;
+            }
+
+            var parent = parentRoom!;
+            var roomId = $"{parent.RoomId}__SubRoom";
+            var roomName = BuildUniqueSubRoomName(parent.RoomDisplayName);
+
+            var roomColor = Color.Lerp(parent.AccentColor, Color.white, 0.18f);
+            BuildSubRoom(parent, roomId, roomName, roomColor);
+        }
+
+        public void NavigateToChildRoom(RoomInstance? parentRoom)
+        {
+            if (parentRoom == null)
+            {
+                return;
+            }
+
+            if (!PalaceSessionState.TryGetFirstChildRoomId(parentRoom.RoomId, out var childRoomId))
+            {
+                return;
+            }
+
+            if (!roomInstances.TryGetValue(childRoomId, out var childRoom))
+            {
+                return;
+            }
+
+            TeleportPlayerToRoom(childRoom);
+        }
+
+        public void NavigateToParentRoom(RoomInstance? childRoom)
+        {
+            if (childRoom == null || string.IsNullOrWhiteSpace(childRoom.ParentRoomId))
+            {
+                return;
+            }
+
+            if (!roomInstances.TryGetValue(childRoom.ParentRoomId, out var parentRoom))
+            {
+                return;
+            }
+
+            TeleportPlayerToRoom(parentRoom);
+        }
+
+        public bool TryTeleportToRoom(string roomId)
+        {
+            if (!roomInstances.TryGetValue(roomId, out var room))
+            {
+                return false;
+            }
+
+            TeleportPlayerToRoom(room);
+            return true;
+        }
+
+        public System.Collections.Generic.IReadOnlyList<MapRoomInfo> GetMapRoomInfos()
+        {
+            var results = new System.Collections.Generic.List<MapRoomInfo>(roomInstances.Count);
+            foreach (var room in roomInstances.Values)
+            {
+                results.Add(new MapRoomInfo(room.RoomId, room.RoomDisplayName, room.LayoutCenter, room.IsSubRoom));
+            }
+
+            return results;
+        }
+
+        public bool TryGetPlayerMapPosition(out Vector3 worldPosition)
+        {
+            if (player != null)
+            {
+                worldPosition = player.position;
+                return true;
+            }
+
+            worldPosition = Vector3.zero;
+            return false;
         }
 
         private void SpawnPlayerAtEntryHall()
@@ -194,6 +323,7 @@ namespace VisualEducationSystem.Rooms
             Vector3 center,
             Vector3 size,
             Color color,
+            string parentRoomId,
             bool openWest,
             bool openEast,
             bool openNorth,
@@ -201,14 +331,16 @@ namespace VisualEducationSystem.Rooms
         {
             if (transform.Find(name) != null)
             {
-                return transform.Find(name)!.GetComponent<RoomInstance>();
+                var existingRoom = transform.Find(name)!.GetComponent<RoomInstance>();
+                roomInstances[name] = existingRoom;
+                return existingRoom;
             }
 
             var roomRoot = new GameObject(name).transform;
             roomRoot.SetParent(transform);
             var roomRenderers = new System.Collections.Generic.List<Renderer>();
 
-            roomRenderers.Add(CreateCube(roomRoot, "Floor", center + new Vector3(0f, -1.5f, 0f), new Vector3(size.x, 0.2f, size.z), color * 0.8f));
+            roomRenderers.Add(CreateCube(roomRoot, "Floor", center + new Vector3(0f, -1.5f, 0f), new Vector3(size.x + 2.4f, 0.2f, size.z + 2.4f), color * 0.8f));
             roomRenderers.Add(CreateCube(roomRoot, "Ceiling", center + new Vector3(0f, 1.5f, 0f), new Vector3(size.x, 0.2f, size.z), color * 0.65f));
             roomRenderers.AddRange(CreateFrontBackWall(roomRoot, "WallNorth", center, size, color, true, openNorth));
             roomRenderers.AddRange(CreateFrontBackWall(roomRoot, "WallSouth", center, size, color, false, openSouth));
@@ -223,17 +355,130 @@ namespace VisualEducationSystem.Rooms
             var roomInstance = roomRoot.gameObject.AddComponent<RoomInstance>();
             var initialName = displayName;
             var initialColor = color;
+            var initialParentRoomId = parentRoomId;
             if (PalaceSessionState.TryGetRoom(name, out var snapshot))
             {
                 initialName = snapshot.DisplayName;
                 initialColor = snapshot.AccentColor;
+                initialParentRoomId = snapshot.ParentRoomId;
             }
-            roomInstance.Initialize(name, initialName, initialColor, roomRenderers);
+            roomInstance.Initialize(name, initialName, initialColor, initialParentRoomId, center, size, center + new Vector3(0f, -0.4f, 0f), roomRenderers);
 
             var roomZone = roomRoot.gameObject.AddComponent<RoomZone>();
             roomZone.BindRoom(roomInstance);
             roomZone.SetDisplayName(initialName);
+            roomInstances[name] = roomInstance;
             return roomInstance;
+        }
+
+        private void BuildSavedSubRooms()
+        {
+            var subRooms = new System.Collections.Generic.List<PalaceSessionState.RoomRecord>();
+            foreach (var room in PalaceSessionState.GetAllRooms())
+            {
+                if (!string.IsNullOrWhiteSpace(room.ParentRoomId))
+                {
+                    subRooms.Add(room);
+                }
+            }
+
+            subRooms.Sort((left, right) =>
+            {
+                var depthCompare = PalaceSessionState.GetRoomDepth(left.RoomId).CompareTo(PalaceSessionState.GetRoomDepth(right.RoomId));
+                return depthCompare != 0 ? depthCompare : string.CompareOrdinal(left.RoomId, right.RoomId);
+            });
+
+            foreach (var room in subRooms)
+            {
+                if (!roomInstances.TryGetValue(room.ParentRoomId, out var parentRoom))
+                {
+                    continue;
+                }
+
+                BuildSubRoom(parentRoom, room.RoomId, room.DisplayName, room.AccentColor);
+            }
+        }
+
+        private RoomInstance BuildSubRoom(RoomInstance parentRoom, string roomId, string displayName, Color color)
+        {
+            var outwardDirection = GetOutwardDirection(parentRoom);
+            var center = parentRoom.LayoutCenter + outwardDirection * 14f;
+            var size = new Vector3(8f, 3f, 8f);
+            var openWest = outwardDirection == Vector3.right;
+            var openEast = outwardDirection == Vector3.left;
+            var openNorth = outwardDirection == Vector3.back;
+            var openSouth = outwardDirection == Vector3.forward;
+            var subRoom = BuildRoom(roomId, displayName, center, size, color, parentRoom.RoomId, openWest, openEast, openNorth, openSouth);
+            EnsureRoomOpening(parentRoom, outwardDirection);
+            BuildConnectorBetweenRooms(parentRoom, subRoom, outwardDirection);
+            BuildSubRoomEntranceLabel(parentRoom, subRoom, outwardDirection);
+            return subRoom;
+        }
+
+        private static Vector3 GetOutwardDirection(RoomInstance room)
+        {
+            if (!string.IsNullOrWhiteSpace(room.ParentRoomId) && Instance != null && Instance.roomInstances.TryGetValue(room.ParentRoomId, out var parentRoom))
+            {
+                return QuantizeDirection(room.LayoutCenter - parentRoom.LayoutCenter);
+            }
+
+            return QuantizeDirection(room.LayoutCenter);
+        }
+
+        private static Vector3 QuantizeDirection(Vector3 rawDirection)
+        {
+            rawDirection.y = 0f;
+            if (Mathf.Abs(rawDirection.x) >= Mathf.Abs(rawDirection.z))
+            {
+                return rawDirection.x >= 0f ? Vector3.right : Vector3.left;
+            }
+
+            return rawDirection.z >= 0f ? Vector3.forward : Vector3.back;
+        }
+
+        private void TeleportPlayerToRoom(RoomInstance room)
+        {
+            var spawnPosition = room.SpawnPoint;
+            var spawnRotation = Quaternion.Euler(0f, 90f, 0f);
+
+            if (playerController != null)
+            {
+                playerController.TeleportTo(spawnPosition, spawnRotation);
+            }
+            else if (player != null)
+            {
+                player.SetPositionAndRotation(spawnPosition, spawnRotation);
+            }
+
+            playerRoomTracker?.SetCurrentRoom(room, room.RoomDisplayName);
+        }
+
+        private static string BuildUniqueSubRoomName(string parentDisplayName)
+        {
+            var candidateNames = new[]
+            {
+                $"{parentDisplayName} Sub-Room",
+                $"{parentDisplayName} Study Room",
+                $"{parentDisplayName} Recall Room"
+            };
+
+            foreach (var candidate in candidateNames)
+            {
+                if (PalaceSessionState.IsRoomDisplayNameAvailable(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            var suffix = 2;
+            var fallback = $"{parentDisplayName} Sub-Room {suffix}";
+            while (!PalaceSessionState.IsRoomDisplayNameAvailable(fallback))
+            {
+                suffix++;
+                fallback = $"{parentDisplayName} Sub-Room {suffix}";
+            }
+
+            return fallback;
         }
 
         private static System.Collections.Generic.IEnumerable<Renderer> CreateFrontBackWall(
@@ -328,11 +573,42 @@ namespace VisualEducationSystem.Rooms
             textMesh.alignment = TextAlignment.Center;
             textMesh.color = Color.white;
 
-            var meshRenderer = textObject.GetComponent<MeshRenderer>();
-            meshRenderer.sortingOrder = 10;
-
             BuildIcon(labelRoot, accentColor, iconShape);
+            ConfigureLabelTextRenderer(textObject.GetComponent<MeshRenderer>(), textMesh);
             return (textMesh, backPlate.GetComponent<Renderer>());
+        }
+
+        private static void ConfigureLabelTextRenderer(MeshRenderer renderer, TextMesh textMesh)
+        {
+            if (renderer == null || textMesh.font == null)
+            {
+                return;
+            }
+
+            var shader = Shader.Find("Unlit/Transparent");
+            var material = shader != null
+                ? new Material(shader)
+                : new Material(textMesh.font.material);
+            material.mainTexture = textMesh.font.material.mainTexture;
+            material.color = Color.white;
+            material.renderQueue = (int)RenderQueue.Transparent;
+            if (material.HasProperty("_ZWrite"))
+            {
+                material.SetInt("_ZWrite", 0);
+            }
+
+            if (material.HasProperty("_ZTest"))
+            {
+                material.SetInt("_ZTest", (int)CompareFunction.LessEqual);
+            }
+
+            if (material.HasProperty("_Cull"))
+            {
+                material.SetInt("_Cull", (int)CullMode.Back);
+            }
+
+            renderer.sharedMaterial = material;
+            renderer.sortingOrder = 0;
         }
 
         private static void BuildIcon(Transform parent, Color accentColor, IconShape iconShape)
@@ -415,6 +691,110 @@ namespace VisualEducationSystem.Rooms
 
             var renderer = bridge.GetComponent<Renderer>();
             renderer.sharedMaterial = CreateMaterial(new Color(0.24f, 0.24f, 0.27f));
+
+            var isHorizontal = Mathf.Abs(center.x) > Mathf.Abs(center.z);
+            var bridgeScale = isHorizontal
+                ? new Vector3(size.x + 0.6f, size.y, size.z + 2.6f)
+                : new Vector3(size.x + 2.6f, size.y, size.z + 0.6f);
+            bridge.transform.localScale = bridgeScale;
+
+            var corridorHalfSpan = isHorizontal ? bridgeScale.z / 2f - 0.12f : bridgeScale.x / 2f - 0.12f;
+            var wallLength = isHorizontal ? bridgeScale.x - 0.2f : bridgeScale.z - 0.2f;
+            var wallScale = isHorizontal
+                ? new Vector3(wallLength, 2.15f, 0.18f)
+                : new Vector3(0.18f, 2.15f, wallLength);
+
+            var wallY = 1.05f;
+            var firstWallPosition = center + (isHorizontal ? new Vector3(0f, wallY, corridorHalfSpan) : new Vector3(corridorHalfSpan, wallY, 0f));
+            var secondWallPosition = center + (isHorizontal ? new Vector3(0f, wallY, -corridorHalfSpan) : new Vector3(-corridorHalfSpan, wallY, 0f));
+            CreateCube(transform, $"{name}_RailA", firstWallPosition, wallScale, new Color(0.76f, 0.76f, 0.8f));
+            CreateCube(transform, $"{name}_RailB", secondWallPosition, wallScale, new Color(0.76f, 0.76f, 0.8f));
+        }
+
+        private void EnsureRoomOpening(RoomInstance room, Vector3 outwardDirection)
+        {
+            var roomRoot = room.transform;
+            var renderers = new System.Collections.Generic.List<Renderer>();
+
+            if (outwardDirection == Vector3.right || outwardDirection == Vector3.left)
+            {
+                RemoveChildrenByPrefix(roomRoot, outwardDirection == Vector3.right ? "WallEast" : "WallWest");
+                renderers.AddRange(CreateSideWall(roomRoot, outwardDirection == Vector3.right ? "WallEast" : "WallWest", room.LayoutCenter, room.RoomSize, room.AccentColor, outwardDirection == Vector3.right, true));
+            }
+            else
+            {
+                RemoveChildrenByPrefix(roomRoot, outwardDirection == Vector3.forward ? "WallNorth" : "WallSouth");
+                renderers.AddRange(CreateFrontBackWall(roomRoot, outwardDirection == Vector3.forward ? "WallNorth" : "WallSouth", room.LayoutCenter, room.RoomSize, room.AccentColor, outwardDirection == Vector3.forward, true));
+            }
+
+            room.RegisterRenderers(renderers);
+        }
+
+        private void BuildConnectorBetweenRooms(RoomInstance parentRoom, RoomInstance childRoom, Vector3 outwardDirection)
+        {
+            var connectorName = $"SubConnector_{parentRoom.RoomId}_To_{childRoom.RoomId}";
+            if (transform.Find(connectorName) != null)
+            {
+                return;
+            }
+
+            var midpoint = (parentRoom.LayoutCenter + childRoom.LayoutCenter) * 0.5f;
+            var isHorizontal = Mathf.Abs(outwardDirection.x) > 0.5f;
+            var bridge = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bridge.name = connectorName;
+            bridge.transform.SetParent(transform);
+            bridge.transform.position = midpoint + new Vector3(0f, -1.4f, 0f);
+            var bridgeScale = isHorizontal
+                ? new Vector3(6.6f, 0.14f, 5f)
+                : new Vector3(5f, 0.14f, 6.6f);
+            bridge.transform.localScale = bridgeScale;
+            bridge.GetComponent<Renderer>().sharedMaterial = CreateMaterial(new Color(0.3f, 0.3f, 0.34f));
+
+            var corridorHalfSpan = isHorizontal ? bridgeScale.z / 2f - 0.12f : bridgeScale.x / 2f - 0.12f;
+            var wallLength = isHorizontal ? bridgeScale.x - 0.2f : bridgeScale.z - 0.2f;
+            var wallY = -0.35f;
+            var leftWallPosition = midpoint + (isHorizontal ? new Vector3(0f, wallY, corridorHalfSpan) : new Vector3(corridorHalfSpan, wallY, 0f));
+            var rightWallPosition = midpoint + (isHorizontal ? new Vector3(0f, wallY, -corridorHalfSpan) : new Vector3(-corridorHalfSpan, wallY, 0f));
+            var wallScale = isHorizontal ? new Vector3(wallLength, 1.9f, 0.16f) : new Vector3(0.16f, 1.9f, wallLength);
+            CreateCube(transform, $"{connectorName}_WallA", leftWallPosition, wallScale, new Color(0.84f, 0.84f, 0.88f));
+            CreateCube(transform, $"{connectorName}_WallB", rightWallPosition, wallScale, new Color(0.84f, 0.84f, 0.88f));
+        }
+
+        private void BuildSubRoomEntranceLabel(RoomInstance parentRoom, RoomInstance childRoom, Vector3 outwardDirection)
+        {
+            var labelName = $"SubConnectorLabel_{parentRoom.RoomId}_To_{childRoom.RoomId}";
+            if (transform.Find(labelName) != null)
+            {
+                return;
+            }
+
+            var isHorizontal = Mathf.Abs(outwardDirection.x) > 0.5f;
+            var labelRotation = isHorizontal
+                ? Quaternion.Euler(0f, outwardDirection.x > 0f ? 90f : -90f, 0f)
+                : Quaternion.Euler(0f, outwardDirection.z > 0f ? 0f : 180f, 0f);
+            var labelPosition = parentRoom.LayoutCenter
+                + outwardDirection * (isHorizontal ? parentRoom.RoomSize.x * 0.5f + 1f : parentRoom.RoomSize.z * 0.5f + 1f)
+                + new Vector3(0f, 0.15f, 0f);
+
+            BuildEntranceLabel(labelName, childRoom.RoomDisplayName, labelPosition, labelRotation, childRoom.AccentColor, IconShape.Square, isHorizontal);
+        }
+
+        private static void RemoveChildrenByPrefix(Transform parent, string prefix)
+        {
+            var targets = new System.Collections.Generic.List<GameObject>();
+            for (var index = 0; index < parent.childCount; index++)
+            {
+                var child = parent.GetChild(index);
+                if (child.name.StartsWith(prefix, System.StringComparison.Ordinal))
+                {
+                    targets.Add(child.gameObject);
+                }
+            }
+
+            foreach (var target in targets)
+            {
+                Object.Destroy(target);
+            }
         }
 
         private static GameObject CreatePrimitive(Transform parent, PrimitiveType primitiveType, string name, Vector3 position, Vector3 scale, Color color)

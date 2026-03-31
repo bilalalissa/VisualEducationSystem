@@ -15,6 +15,10 @@ The concept is not only “walk through rooms.” The intended experience is:
 - memory grouping
 - simple authorship by the user
 - persistence through save/load
+- expandable room hierarchies through sub-rooms
+- memory clues placed inside rooms
+- active recall and rehearsal inside dedicated practice spaces
+- eventual VR-based immersion for stronger spatial memory
 
 ## Storyboard Narrative
 
@@ -70,9 +74,29 @@ The user returns to the main menu, loads the palace from the save list, and conf
 
 - more polished UI
 - richer visual art and theming
-- broader room-creation system
+- broader room-creation system, including sub-rooms inside rooms
+- memory-clue placement tools for pictures, handwriting-style notes, videos, and files
+- practice or lecturing rooms where users can rehearse memorized material
+- a VR-ready interaction model and headset deployment path
 - more complete testing evidence
 - final presentation polish
+
+## Expanded Final Vision
+
+The current prototype is the first layer of a larger memory-palace system. The intended full project should allow a user to build a deeper palace structure instead of a single flat branch layout. Each room should be able to contain sub-rooms so the learner can represent categories, subtopics, and nested ideas inside a larger spatial hierarchy.
+
+The final design should also support memory clues placed directly inside each room. These clues may include:
+
+- pictures and visual reference images
+- handwritten-style notes or labels
+- videos
+- linked files or study materials
+
+The goal is to make each room function as both a spatial location and a rich memory surface.
+
+Another major part of the final vision is active practice. The project should eventually include practice or lecturing rooms where the learner can rehearse information aloud, review the structure of a topic, and test whether the palace supports real memorization rather than only room navigation.
+
+Finally, the project should be extendable to VR. A VR headset version would make the palace more immersive and may strengthen the user’s sense of presence, orientation, and recall. This is not part of the current prototype, but it is an important long-term direction for the project.
 
 ## Why The Current Prototype Matches The Concept
 

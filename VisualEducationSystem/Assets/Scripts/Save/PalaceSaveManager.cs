@@ -48,6 +48,7 @@ namespace VisualEducationSystem.Save
         {
             public string roomId = string.Empty;
             public string displayName = string.Empty;
+            public string parentRoomId = string.Empty;
             public float colorR;
             public float colorG;
             public float colorB;
@@ -133,6 +134,7 @@ namespace VisualEducationSystem.Save
                 {
                     roomId = room.RoomId,
                     displayName = room.DisplayName,
+                    parentRoomId = room.ParentRoomId,
                     colorR = room.AccentColor.r,
                     colorG = room.AccentColor.g,
                     colorB = room.AccentColor.b,
@@ -168,7 +170,7 @@ namespace VisualEducationSystem.Save
             foreach (var room in data.rooms)
             {
                 var color = new Color(room.colorR, room.colorG, room.colorB, room.colorA);
-                PalaceSessionState.SetRoom(room.roomId, room.displayName, color);
+                PalaceSessionState.SetRoom(room.roomId, room.displayName, color, room.parentRoomId);
             }
 
             return true;

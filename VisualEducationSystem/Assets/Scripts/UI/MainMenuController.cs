@@ -11,7 +11,8 @@ namespace VisualEducationSystem.UI
         {
             Root,
             Create,
-            Load
+            Load,
+            Settings
         }
 
         [SerializeField] private string prototypeSceneName = "PrototypePalace";
@@ -20,6 +21,7 @@ namespace VisualEducationSystem.UI
         private MenuMode menuMode;
         private string newPalaceName = "My Palace";
         private Vector2 loadScrollPosition;
+        private Vector2 settingsScrollPosition;
         private string menuStatus = string.Empty;
 
         private void Update()
@@ -63,6 +65,9 @@ namespace VisualEducationSystem.UI
                 case MenuMode.Load:
                     DrawLoadMenu();
                     break;
+                case MenuMode.Settings:
+                    DrawSettingsMenu();
+                    break;
             }
 
             GUILayout.EndArea();
@@ -82,6 +87,13 @@ namespace VisualEducationSystem.UI
             if (GUILayout.Button("Load Palace", GUILayout.Height(40f)))
             {
                 menuMode = MenuMode.Load;
+            }
+
+            GUILayout.Space(8f);
+
+            if (GUILayout.Button("Settings", GUILayout.Height(40f)))
+            {
+                menuMode = MenuMode.Settings;
             }
 
             GUILayout.Space(8f);
@@ -183,6 +195,60 @@ namespace VisualEducationSystem.UI
                 GUILayout.Label(menuStatus, GUI.skin.box, GUILayout.Height(40f));
                 GUILayout.Space(8f);
             }
+
+            if (GUILayout.Button("Back", GUILayout.Height(34f)))
+            {
+                menuStatus = string.Empty;
+                menuMode = MenuMode.Root;
+            }
+        }
+
+        private void DrawSettingsMenu()
+        {
+            GUILayout.Label("HUD Settings");
+            GUILayout.Space(8f);
+
+            var scrollHeight = Mathf.Clamp(Screen.height - 240f, 180f, 280f);
+            settingsScrollPosition = GUILayout.BeginScrollView(settingsScrollPosition, false, true, GUILayout.Height(scrollHeight));
+
+            if (GUILayout.Button($"Auto-Hide Delay: {HudSettingsStore.GetAutoHideDelayLabel()}", GUILayout.Height(38f)))
+            {
+                HudSettingsStore.CycleAutoHideDelay();
+            }
+
+            GUILayout.Space(8f);
+
+            if (GUILayout.Button($"HUD Theme: {HudSettingsStore.GetThemeModeLabel()}", GUILayout.Height(38f)))
+            {
+                HudSettingsStore.CycleThemeMode();
+            }
+
+            GUILayout.Space(8f);
+
+            if (GUILayout.Button($"Mini Map Position: {HudSettingsStore.GetMiniMapAnchorModeLabel()}", GUILayout.Height(38f)))
+            {
+                HudSettingsStore.CycleMiniMapAnchorMode();
+            }
+
+            GUILayout.Space(12f);
+            GUILayout.Label("In the palace:");
+            GUILayout.Label("- HUD panels hide while you move and reappear after you stop.");
+            GUILayout.Label("- Hold Tab to temporarily reveal slid-away HUD panels.");
+            GUILayout.Label("- Hold Left Alt to show panel numbers.");
+            GUILayout.Label("- Press Alt+1/2/3/4 to toggle Palace/Room/Help/Mini Map.");
+            GUILayout.Label("- Press Alt+0 to toggle all panels together.");
+            GUILayout.Label("- Auto-hide slides panels to the edge instead of fully hiding them.");
+            GUILayout.Space(12f);
+
+            var settings = HudSettingsStore.Get();
+            GUILayout.Label("Current panel defaults");
+            GUILayout.Label($"Palace box: {(settings.autoHidePalace ? "Auto-hide" : "Pinned")}");
+            GUILayout.Label($"Room box: {(settings.autoHideRoom ? "Auto-hide" : "Pinned")}");
+            GUILayout.Label($"Help box: {(settings.autoHideHelp ? "Auto-hide" : "Pinned")}");
+            GUILayout.Label($"Mini map: {(settings.autoHideMiniMap ? "Auto-hide" : "Pinned")}");
+            GUILayout.Space(12f);
+
+            GUILayout.EndScrollView();
 
             if (GUILayout.Button("Back", GUILayout.Height(34f)))
             {
