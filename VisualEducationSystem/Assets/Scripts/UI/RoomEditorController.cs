@@ -101,7 +101,8 @@ namespace VisualEducationSystem.UI
             if (roomTracker.CurrentRoom.RoomId != EntryHallRoomId && palaceBootstrap != null)
             {
                 var canAddSubRoom = palaceBootstrap.CanAddSubRoom(roomTracker.CurrentRoom);
-                var hasSubRoom = palaceBootstrap.HasSubRoom(roomTracker.CurrentRoom);
+                var childRooms = palaceBootstrap.GetChildRooms(roomTracker.CurrentRoom);
+                var hasSubRoom = childRooms.Count > 0;
 
                 GUI.enabled = canAddSubRoom;
                 if (GUILayout.Button("Add Sub-Room", GUILayout.Height(34f)))
@@ -113,11 +114,14 @@ namespace VisualEducationSystem.UI
 
                 GUI.enabled = true;
 
-                if (hasSubRoom && GUILayout.Button("Enter Sub-Room", GUILayout.Height(34f)))
+                foreach (var childRoom in childRooms)
                 {
-                    palaceBootstrap.NavigateToChildRoom(roomTracker.CurrentRoom);
-                    CloseEditor();
-                    return;
+                    if (GUILayout.Button($"Enter {childRoom.RoomDisplayName}", GUILayout.Height(34f)))
+                    {
+                        palaceBootstrap.TryTeleportToRoom(childRoom.RoomId);
+                        CloseEditor();
+                        return;
+                    }
                 }
 
                 if (palaceBootstrap.CanNavigateToParent(roomTracker.CurrentRoom) && GUILayout.Button("Return To Parent Room", GUILayout.Height(34f)))
@@ -129,9 +133,9 @@ namespace VisualEducationSystem.UI
 
                 GUILayout.Label(
                     canAddSubRoom
-                        ? "Create one nested study room inside this room."
+                        ? "Create another nested study room from this branch."
                         : hasSubRoom
-                            ? "This room already has a sub-room."
+                            ? "This branch has reached its current sub-room limit."
                             : "Sub-room creation is unavailable here.");
                 GUILayout.Space(8f);
             }

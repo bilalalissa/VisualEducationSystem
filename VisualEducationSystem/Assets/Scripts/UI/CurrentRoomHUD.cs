@@ -1,3 +1,4 @@
+#nullable enable
 using UnityEngine;
 using UnityEngine.InputSystem;
 using VisualEducationSystem.Rooms;
@@ -115,8 +116,8 @@ namespace VisualEducationSystem.UI
                 return;
             }
 
-            var (backgroundColor, borderColor, textColor) = GetThemeColors();
-            DrawPanelBackground(rect, backgroundColor, borderColor);
+            var (backgroundColor, panelBorderColor, textColor) = GetThemeColors();
+            DrawPanelBackground(rect, backgroundColor, panelBorderColor);
             GUI.Label(new Rect(rect.x + 10f, rect.y + 8f, rect.width - 20f, 20f), expanded ? "Palace Map" : "Mini Map", hudTitleStyle);
 
             if (allowPanelToggle)
@@ -137,31 +138,62 @@ namespace VisualEducationSystem.UI
                 maxZ = Mathf.Max(maxZ, room.Center.z);
             }
 
+            var roomCount = rooms.Count;
+            var boundsPadding = expanded ? 8f : 5f;
+            minX -= boundsPadding;
+            maxX += boundsPadding;
+            minZ -= boundsPadding;
+            maxZ += boundsPadding;
+
             var width = Mathf.Max(1f, maxX - minX);
             var height = Mathf.Max(1f, maxZ - minZ);
             var mapArea = new Rect(rect.x + 10f, rect.y + 30f, rect.width - 20f, rect.height - 40f);
+            var markerWidth = expanded ? Mathf.Clamp(82f - roomCount * 2.4f, 38f, 82f) : Mathf.Clamp(20f - roomCount * 0.35f, 10f, 18f);
+            var markerHeight = expanded ? Mathf.Clamp(28f - roomCount * 0.45f, 16f, 28f) : Mathf.Clamp(12f - roomCount * 0.18f, 7f, 10f);
+            var labelChars = expanded ? Mathf.Clamp(Mathf.RoundToInt(18f - roomCount * 0.4f), 8, 18) : 0;
+            mapLabelStyle!.fontSize = expanded
+                ? Mathf.Clamp(Mathf.RoundToInt(13f - roomCount * 0.22f), 8, 13)
+                : 10;
+
+            var markerCenters = new System.Collections.Generic.Dictionary<string, Vector2>(roomCount);
+            var roomLookup = new System.Collections.Generic.Dictionary<string, PrototypePalaceBootstrap.MapRoomInfo>(roomCount);
+            foreach (var room in rooms)
+            {
+                markerCenters[room.RoomId] = GetMapPoint(room.Center, minX, minZ, width, height, mapArea);
+                roomLookup[room.RoomId] = room;
+            }
 
             foreach (var room in rooms)
             {
-                var normalizedX = (room.Center.x - minX) / width;
-                var normalizedY = (room.Center.z - minZ) / height;
-                var markerWidth = expanded ? 56f : 18f;
-                var markerHeight = expanded ? 24f : 10f;
+                var parentRoomId = GetEffectiveMapParentRoomId(room, roomLookup);
+                if (string.IsNullOrWhiteSpace(parentRoomId) || !markerCenters.TryGetValue(parentRoomId, out var parentPoint))
+                {
+                    continue;
+                }
+
+                DrawMapLine(parentPoint, markerCenters[room.RoomId], Color.Lerp(room.AccentColor, Color.white, 0.35f), expanded ? 2.25f : 1.4f);
+            }
+
+            foreach (var room in rooms)
+            {
+                var markerCenter = markerCenters[room.RoomId];
                 var markerRect = new Rect(
-                    mapArea.x + normalizedX * (mapArea.width - markerWidth),
-                    mapArea.y + normalizedY * (mapArea.height - markerHeight),
+                    markerCenter.x - markerWidth * 0.5f,
+                    markerCenter.y - markerHeight * 0.5f,
                     markerWidth,
                     markerHeight);
 
                 var fillColor = room.DisplayName == currentRoomName
                     ? new Color(1f, 0.91f, 0.4f, 1f)
-                    : room.IsSubRoom
-                        ? new Color(0.72f, 0.88f, 1f, 1f)
-                        : new Color(0.72f, 0.75f, 0.8f, 1f);
-                DrawFilledRect(markerRect, fillColor, new Color(0.17f, 0.2f, 0.26f, 0.95f));
+                    : Color.Lerp(room.AccentColor, room.IsSubRoom ? Color.white : new Color(0.72f, 0.75f, 0.8f, 1f), room.IsSubRoom ? 0.42f : 0.18f);
+                var markerBorderColor = room.Depth == 0
+                    ? new Color(0.12f, 0.16f, 0.22f, 0.95f)
+                    : Color.Lerp(new Color(0.17f, 0.2f, 0.26f, 0.95f), room.AccentColor, 0.25f);
+                DrawFilledRect(markerRect, fillColor, markerBorderColor);
                 if (expanded)
                 {
-                    GUI.Label(markerRect, BuildMapLabel(room.DisplayName), mapLabelStyle);
+                    mapLabelStyle.normal.textColor = GetReadableTextColor(fillColor);
+                    GUI.Label(markerRect, BuildMapLabel(room.DisplayName, labelChars), mapLabelStyle);
                 }
             }
 
@@ -190,6 +222,37 @@ namespace VisualEducationSystem.UI
             {
                 GUI.Label(new Rect(rect.x + 8f, rect.yMax - 20f, rect.width - 16f, 16f), "Alt+Click to pin", mapHintStyle);
             }
+        }
+
+        private static Vector2 GetMapPoint(Vector3 worldPosition, float minX, float minZ, float width, float height, Rect mapArea)
+        {
+            var normalizedX = Mathf.Clamp01((worldPosition.x - minX) / width);
+            var normalizedY = Mathf.Clamp01((worldPosition.z - minZ) / height);
+            return new Vector2(
+                mapArea.x + normalizedX * mapArea.width,
+                mapArea.y + normalizedY * mapArea.height);
+        }
+
+        private static string GetEffectiveMapParentRoomId(
+            PrototypePalaceBootstrap.MapRoomInfo room,
+            System.Collections.Generic.IReadOnlyDictionary<string, PrototypePalaceBootstrap.MapRoomInfo> roomLookup)
+        {
+            if (!string.IsNullOrWhiteSpace(room.ParentRoomId))
+            {
+                return room.ParentRoomId;
+            }
+
+            return room.RoomId != "EntryHall" && roomLookup.ContainsKey("EntryHall")
+                ? "EntryHall"
+                : string.Empty;
+        }
+
+        private static Color GetReadableTextColor(Color backgroundColor)
+        {
+            var luminance = backgroundColor.r * 0.299f + backgroundColor.g * 0.587f + backgroundColor.b * 0.114f;
+            return luminance < 0.56f
+                ? new Color(0.97f, 0.98f, 1f, 1f)
+                : new Color(0.08f, 0.1f, 0.14f, 1f);
         }
 
         private void DrawHudPanel(Rect rect, string text, HudPanelId panelId, bool allowPanelToggle)
@@ -225,6 +288,7 @@ namespace VisualEducationSystem.UI
             var isAutoHide = HudSettingsStore.IsPanelAutoHideEnabled(panelId);
             var fillColor = isAutoHide ? new Color(0.78f, 0.9f, 1f, 0.95f) : new Color(0.93f, 0.82f, 0.56f, 0.95f);
             DrawFilledRect(badgeRect, fillColor, new Color(0.25f, 0.28f, 0.34f, 0.95f));
+            mapLabelStyle!.fontSize = 10;
             GUI.Label(badgeRect, $"{shortcutLabel}:{(isAutoHide ? "AUTO" : "PIN")}", mapLabelStyle);
         }
 
@@ -271,14 +335,19 @@ namespace VisualEducationSystem.UI
             return baseRect;
         }
 
-        private static string BuildMapLabel(string displayName)
+        private static string BuildMapLabel(string displayName, int maxCharacters)
         {
-            if (displayName.Length <= 12)
+            if (maxCharacters <= 0 || displayName.Length <= maxCharacters)
             {
                 return displayName;
             }
 
-            return displayName.Substring(0, 10) + "..";
+            if (maxCharacters <= 3)
+            {
+                return displayName.Substring(0, maxCharacters);
+            }
+
+            return displayName.Substring(0, maxCharacters - 2) + "..";
         }
 
         private void EnsureStyles()
@@ -434,6 +503,25 @@ namespace VisualEducationSystem.UI
             GUI.DrawTexture(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f), GetWhiteTexture());
             GUI.DrawTexture(new Rect(rect.x, rect.y, 1f, rect.height), GetWhiteTexture());
             GUI.DrawTexture(new Rect(rect.xMax - 1f, rect.y, 1f, rect.height), GetWhiteTexture());
+            GUI.color = previousColor;
+        }
+
+        private void DrawMapLine(Vector2 start, Vector2 end, Color color, float thickness)
+        {
+            var delta = end - start;
+            var angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+            var length = delta.magnitude;
+            if (length <= 0.01f)
+            {
+                return;
+            }
+
+            var previousMatrix = GUI.matrix;
+            var previousColor = GUI.color;
+            GUI.color = color;
+            GUIUtility.RotateAroundPivot(angle, start);
+            GUI.DrawTexture(new Rect(start.x, start.y - thickness * 0.5f, length, thickness), GetWhiteTexture());
+            GUI.matrix = previousMatrix;
             GUI.color = previousColor;
         }
 

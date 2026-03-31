@@ -19,6 +19,7 @@ namespace VisualEducationSystem.Rooms
             public string DisplayName { get; }
             public Color AccentColor { get; }
             public string ParentRoomId { get; }
+            public bool IsSubRoom => !string.IsNullOrWhiteSpace(ParentRoomId);
         }
 
         public readonly struct RoomSnapshot
@@ -112,16 +113,51 @@ namespace VisualEducationSystem.Rooms
             return false;
         }
 
-        public static bool TryGetFirstChildRoomId(string parentRoomId, out string childRoomId)
+        public static int GetChildRoomCount(string parentRoomId)
         {
+            if (string.IsNullOrWhiteSpace(parentRoomId))
+            {
+                return 0;
+            }
+
+            var count = 0;
             foreach (var room in Rooms)
             {
-                if (room.Value.ParentRoomId != parentRoomId)
+                if (room.Value.ParentRoomId == parentRoomId)
                 {
-                    continue;
+                    count++;
                 }
+            }
 
-                childRoomId = room.Key;
+            return count;
+        }
+
+        public static List<string> GetChildRoomIds(string parentRoomId)
+        {
+            var childRoomIds = new List<string>();
+            if (string.IsNullOrWhiteSpace(parentRoomId))
+            {
+                return childRoomIds;
+            }
+
+            foreach (var room in Rooms)
+            {
+                if (room.Value.ParentRoomId == parentRoomId)
+                {
+                    childRoomIds.Add(room.Key);
+                }
+            }
+
+            childRoomIds.Sort(System.StringComparer.Ordinal);
+            return childRoomIds;
+        }
+
+        public static bool TryGetFirstChildRoomId(string parentRoomId, out string childRoomId)
+        {
+            var childRoomIds = GetChildRoomIds(parentRoomId);
+            if (childRoomIds.Count > 0)
+            {
+                childRoomId = childRoomIds[0];
                 return true;
             }
 
