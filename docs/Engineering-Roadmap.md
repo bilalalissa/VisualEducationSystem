@@ -9,13 +9,15 @@ Current implemented foundation:
 - named palace creation, loading, and deletion
 - Entry Hall hub with connected branch rooms
 - room naming and recoloring
-- one added branch room from the Entry Hall
+- Entry Hall branch expansion
+- nested sub-rooms with parent/child navigation
+- room-level note and image clues with persistence and preview
+- clue movement, wall placement, and scaling
 - JSON save/load for palace state
 
 Target product additions:
 
-- sub-rooms inside rooms
-- in-room memory clues such as images, notes, videos, and files
+- richer memory clues such as files and videos
 - rehearsal or lecturing spaces for practicing memorization
 - VR headset support
 
@@ -24,6 +26,24 @@ Target product additions:
 ### Goal
 
 Replace the current mostly flat room structure with a scalable hierarchy that supports sub-rooms inside rooms.
+
+### Status
+
+Substantially complete as an MVP.
+
+Completed in the current build:
+
+- persistent sub-rooms
+- parent/child navigation
+- save/load support for room hierarchy
+- connector and layout fixes
+- HUD and map improvements
+- HUD settings and auto-hide behavior
+
+Still remaining for later polish:
+
+- large-scale map and label scaling polish
+- stronger generated-room theming and polish
 
 ### Main Work
 
@@ -46,11 +66,33 @@ Replace the current mostly flat room structure with a scalable hierarchy that su
 - HUD and room tracking continue to identify the current room correctly
 - the user can still navigate back to higher-level spaces without confusion
 
+Current result: met at MVP level
+
 ## Stage 2: Memory Clue System
 
 ### Goal
 
 Allow rooms to contain study materials and memory anchors, not only names and colors.
+
+### Status
+
+In progress with a working MVP slice.
+
+Completed in the current build:
+
+- clue data model and clue persistence
+- room-level note clues
+- room-level image clues
+- clue preview for notes and images
+- clue movement, wall anchoring, and scaling
+- Unity Editor local image browsing for image clues
+
+Still remaining:
+
+- stronger clue-placement polish and direct dragging
+- file and video clue types
+- richer clue editing and presentation polish
+- broader runtime file-browser support outside the Unity Editor
 
 ### Main Work
 
@@ -76,6 +118,8 @@ Allow rooms to contain study materials and memory anchors, not only names and co
 - clue data persists through save/load
 - clues are readable in the room and support room identity rather than clutter it
 - the UI makes it clear which clue belongs to which room
+
+Current result: partially met, with text and image clue MVP implemented
 
 ## Stage 3: Practice And Rehearsal Flow
 
@@ -157,10 +201,10 @@ This order matters because later systems depend on earlier structure:
 
 The next concrete engineering tasks should be:
 
-1. redesign save data and room runtime structure for nested sub-rooms
-2. add editor support for creating and entering sub-rooms
-3. define a minimal clue schema for text and image clues
-4. prototype clue placement in one room before expanding the feature set
+1. polish clue placement and direct manipulation
+2. add richer clue types such as file and video references
+3. prototype practice and rehearsal flow tied to room and clue content
+4. continue UI cleanup away from debug-style immediate-mode panels
 
 ## Risks
 

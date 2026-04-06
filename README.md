@@ -27,13 +27,14 @@ The current repo reflects an iterative production path:
 - greybox layout centered on an orienting Entry Hall
 - room identity through names, colors, and entrance markers
 - user editing through in-game rename and recolor tools
+- persistent parent/child room hierarchy with sub-room navigation
+- in-room clue placement for note and image clues
 - persistence through named palace save/load
 - meeting-ready documentation for prototyping and testing
 
 Longer-term product goals beyond the current prototype:
 
-- sub-rooms inside rooms for deeper topic hierarchy
-- memory clues inside rooms, such as images, notes, videos, and files
+- richer memory clues inside rooms, such as files and videos
 - rehearsal or lecturing spaces for practicing memorization
 - VR headset support for a more immersive palace experience
 
@@ -42,7 +43,9 @@ Key goals in the current prototype:
 - create or load a named palace
 - enter a central Entry Hall that branches to multiple rooms
 - rename rooms and recolor them
-- add one new branch room from the Entry Hall
+- create and navigate sub-rooms from existing rooms
+- add note and image clues inside rooms
+- place clues on available room walls and resize them
 - save and reload palace state through simple JSON files
 
 [Back to top](#visual-education-system)
@@ -54,9 +57,11 @@ The current playable prototype includes:
 - `Bootstrap -> MainMenu -> PrototypePalace` scene flow
 - first-person movement with keyboard and mouse
 - Entry Hall hub connected to multiple rooms
+- nested sub-room hierarchy with parent/child travel
 - readable entrance signs with labels and icons
 - room HUD and palace HUD
 - in-editor room editing panel
+- in-room note and image clues with placement, resize, and preview flows
 - palace naming and room naming validation
 - named save/load menu with delete support
 - palace-specific center landmark in the Entry Hall
@@ -83,9 +88,10 @@ The key submission-facing materials for Project Meeting #2 are:
 3. Enter the Entry Hall.
 4. Walk to different rooms through labeled branches.
 5. Press `E` to edit the current room.
-6. In Entry Hall, rename the palace or add a new branch room.
-7. Save changes through the current room editor flow.
-8. Return to the menu and reload the palace from JSON.
+6. Rename, recolor, expand rooms, or add clue content through the room editor.
+7. Place clues on valid walls and preview note/image content when needed.
+8. Save changes through the current room editor flow.
+9. Return to the menu and reload the palace from JSON.
 
 [Back to top](#visual-education-system)
 
@@ -177,7 +183,12 @@ Included now:
 - palace creation
 - palace loading and deletion
 - room naming and recoloring
-- one additional room branch from Entry Hall
+- Entry Hall branch expansion
+- sub-room creation and parent/child navigation
+- improved palace map and mini-map readability
+- room-level note clues with editable title/body, text presets, persistence, preview, and placement
+- room-level image clues with local file browsing in the Unity Editor, preview, persistence, and placement
+- clue movement, wall placement, and resizing
 - duplicate-name prevention for palaces and rooms
 - JSON save/load prototype
 
@@ -185,8 +196,8 @@ Not finished yet:
 
 - polished art pass
 - authored UI canvases instead of all immediate-mode debug UI
-- multi-room branching from sub-rooms
-- in-room memory-clue placement for pictures, notes, videos, and files
+- richer clue types such as files and videos
+- drag-and-drop style clue interaction
 - rehearsal or lecturing room functionality
 - VR-ready interaction and deployment support
 - advanced save slots metadata
@@ -198,8 +209,8 @@ Not finished yet:
 
 - refine UI presentation for class/demo use
 - improve visual polish and room theming
-- expand the room-edit loop beyond one extra room and into sub-rooms
-- add memory-clue systems for images, handwriting-style notes, videos, and files
+- improve clue interaction with direct dragging and better placement polish
+- add richer clue systems for files and videos
 - add rehearsal or lecturing spaces for memorization practice
 - investigate VR headset support
 - run and record structured playtests
