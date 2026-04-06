@@ -28,6 +28,7 @@ namespace VisualEducationSystem.Save
             public string palaceName = string.Empty;
             public bool hasWestBranchRoom;
             public List<RoomSaveData> rooms = new();
+            public List<ClueSaveData> clues = new();
         }
 
         [Serializable]
@@ -53,6 +54,28 @@ namespace VisualEducationSystem.Save
             public float colorG;
             public float colorB;
             public float colorA;
+        }
+
+        [Serializable]
+        private sealed class ClueSaveData
+        {
+            public string clueId = string.Empty;
+            public string roomId = string.Empty;
+            public int clueType;
+            public string title = string.Empty;
+            public string bodyText = string.Empty;
+            public string assetPath = string.Empty;
+            public float textScale = 1f;
+            public int textStyle;
+            public float localPositionX;
+            public float localPositionY;
+            public float localPositionZ;
+            public float localEulerX;
+            public float localEulerY;
+            public float localEulerZ;
+            public float localScaleX = 1f;
+            public float localScaleY = 1f;
+            public float localScaleZ = 1f;
         }
 
         private static string SaveDirectory => Path.Combine(Application.persistentDataPath, "Palaces");
@@ -142,6 +165,30 @@ namespace VisualEducationSystem.Save
                 });
             }
 
+            foreach (var clue in PalaceSessionState.GetAllClues())
+            {
+                data.clues.Add(new ClueSaveData
+                {
+                    clueId = clue.ClueId,
+                    roomId = clue.RoomId,
+                    clueType = (int)clue.ClueType,
+                    title = clue.Title,
+                    bodyText = clue.BodyText,
+                    assetPath = clue.AssetPath,
+                    textScale = clue.TextScale,
+                    textStyle = (int)clue.TextStyle,
+                    localPositionX = clue.LocalPosition.x,
+                    localPositionY = clue.LocalPosition.y,
+                    localPositionZ = clue.LocalPosition.z,
+                    localEulerX = clue.LocalEulerAngles.x,
+                    localEulerY = clue.LocalEulerAngles.y,
+                    localEulerZ = clue.LocalEulerAngles.z,
+                    localScaleX = clue.LocalScale.x,
+                    localScaleY = clue.LocalScale.y,
+                    localScaleZ = clue.LocalScale.z
+                });
+            }
+
             var json = JsonUtility.ToJson(data, true);
             File.WriteAllText(GetPalacePath(PalaceSessionState.CurrentPalaceId), json);
             UpsertIndexEntry(PalaceSessionState.CurrentPalaceId, PalaceSessionState.CurrentPalaceName);
@@ -171,6 +218,22 @@ namespace VisualEducationSystem.Save
             {
                 var color = new Color(room.colorR, room.colorG, room.colorB, room.colorA);
                 PalaceSessionState.SetRoom(room.roomId, room.displayName, color, room.parentRoomId);
+            }
+
+            foreach (var clue in data.clues)
+            {
+                PalaceSessionState.SetClue(
+                    clue.clueId,
+                    clue.roomId,
+                    (PalaceClueType)clue.clueType,
+                    clue.title,
+                    clue.bodyText,
+                    clue.assetPath,
+                    clue.textScale,
+                    (PalaceClueTextStyle)clue.textStyle,
+                    new Vector3(clue.localPositionX, clue.localPositionY, clue.localPositionZ),
+                    new Vector3(clue.localEulerX, clue.localEulerY, clue.localEulerZ),
+                    new Vector3(clue.localScaleX, clue.localScaleY, clue.localScaleZ));
             }
 
             return true;

@@ -1,4 +1,5 @@
 #nullable enable
+using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
 using VisualEducationSystem.UI;
@@ -28,9 +29,23 @@ namespace VisualEducationSystem.Rooms
             public bool IsSubRoom => !string.IsNullOrWhiteSpace(ParentRoomId);
         }
 
+        public readonly struct ClueWallOption
+        {
+            public ClueWallOption(string id, string label)
+            {
+                Id = id;
+                Label = label;
+            }
+
+            public string Id { get; }
+            public string Label { get; }
+        }
+
         private const string EntryHallRoomId = "EntryHall";
         private const int MaxChildBranchesPerRoom = 3;
         private const float BranchSpacing = 14f;
+        private const float CluePivotHeightOffset = 0.98f;
+        private const float ClueWallInset = 0.72f;
         private static readonly Vector3[] CardinalDirections = { Vector3.right, Vector3.forward, Vector3.back, Vector3.left };
         public static PrototypePalaceBootstrap? Instance { get; private set; }
         [SerializeField] private Transform player = null!;
@@ -39,7 +54,16 @@ namespace VisualEducationSystem.Rooms
         private int nextDynamicRoomIndex = 4;
         private bool hasWestBranchRoom;
         private readonly System.Collections.Generic.Dictionary<string, RoomInstance> roomInstances = new();
+        private readonly System.Collections.Generic.Dictionary<string, Transform> clueVisualRoots = new();
         public bool CanAddRoomFromEntryHall => !hasWestBranchRoom;
+
+        private enum ClueWall
+        {
+            North,
+            South,
+            East,
+            West
+        }
 
         private void Awake()
         {
@@ -82,6 +106,7 @@ namespace VisualEducationSystem.Rooms
             }
 
             BuildSavedSubRooms();
+            BuildSavedClues();
 
             SpawnPlayerAtEntryHall();
 
@@ -285,6 +310,217 @@ namespace VisualEducationSystem.Rooms
             return childRooms;
         }
 
+        public System.Collections.Generic.IReadOnlyList<PalaceSessionState.ClueRecord> GetCluesForRoom(RoomInstance? room)
+        {
+            var clues = new System.Collections.Generic.List<PalaceSessionState.ClueRecord>();
+            if (room == null)
+            {
+                return clues;
+            }
+
+            foreach (var clue in PalaceSessionState.GetCluesForRoom(room.RoomId))
+            {
+                clues.Add(clue);
+            }
+
+            clues.Sort((left, right) => string.CompareOrdinal(left.ClueId, right.ClueId));
+            return clues;
+        }
+
+        public string SaveNoteClue(RoomInstance? room, string clueId, string title, string bodyText, float textScale = 1f, PalaceClueTextStyle textStyle = PalaceClueTextStyle.Normal)
+        {
+            return SaveClue(room, clueId, PalaceClueType.Note, title, bodyText, string.Empty, textScale, textStyle);
+        }
+
+        public string SaveImageClue(RoomInstance? room, string clueId, string title, string assetPath)
+        {
+            return SaveClue(room, clueId, PalaceClueType.Image, title, string.Empty, assetPath, 1f, PalaceClueTextStyle.Normal);
+        }
+
+        private string SaveClue(RoomInstance? room, string clueId, PalaceClueType clueType, string title, string bodyText, string assetPath, float textScale, PalaceClueTextStyle textStyle)
+        {
+            if (room == null)
+            {
+                return string.Empty;
+            }
+
+            var resolvedClueId = string.IsNullOrWhiteSpace(clueId) ? BuildUniqueClueId(room.RoomId) : clueId;
+            var localPosition = GetDefaultClueLocalPosition(room, resolvedClueId);
+            var localEulerAngles = Vector3.zero;
+            var localScale = new Vector3(1f, 1f, 1f);
+            var resolvedTextScale = textScale;
+            var resolvedTextStyle = textStyle;
+
+            if (PalaceSessionState.TryGetClue(resolvedClueId, out var existingClue))
+            {
+                localPosition = NormalizeClueLocalPosition(room, resolvedClueId, existingClue.LocalPosition);
+                localEulerAngles = existingClue.LocalEulerAngles;
+                localScale = existingClue.LocalScale;
+                resolvedTextScale = clueType == PalaceClueType.Note ? textScale : existingClue.TextScale;
+                resolvedTextStyle = clueType == PalaceClueType.Note ? textStyle : existingClue.TextStyle;
+            }
+
+            PalaceSessionState.SetClue(
+                resolvedClueId,
+                room.RoomId,
+                clueType,
+                title,
+                bodyText,
+                assetPath,
+                resolvedTextScale,
+                resolvedTextStyle,
+                localPosition,
+                localEulerAngles,
+                localScale);
+
+            RefreshClueVisual(resolvedClueId);
+            return resolvedClueId;
+        }
+
+        public void DeleteClue(string clueId)
+        {
+            if (string.IsNullOrWhiteSpace(clueId))
+            {
+                return;
+            }
+
+            PalaceSessionState.RemoveClue(clueId);
+            RemoveClueVisual(clueId);
+        }
+
+        public bool TryNudgeClue(RoomInstance? room, string clueId, Vector3 localDelta)
+        {
+            if (room == null || string.IsNullOrWhiteSpace(clueId) || !PalaceSessionState.TryGetClue(clueId, out var clue))
+            {
+                return false;
+            }
+
+            var nextLocalPosition = ClampClueLocalPosition(room, clue.LocalPosition + localDelta);
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                clue.BodyText,
+                clue.AssetPath,
+                clue.TextScale,
+                clue.TextStyle,
+                nextLocalPosition,
+                Vector3.zero,
+                clue.LocalScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
+        public bool TryRotateClue(string clueId, float yawDeltaDegrees)
+        {
+            if (string.IsNullOrWhiteSpace(clueId) || !PalaceSessionState.TryGetClue(clueId, out var clue))
+            {
+                return false;
+            }
+
+            var nextEulerAngles = new Vector3(0f, clue.LocalEulerAngles.y + yawDeltaDegrees, 0f);
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                clue.BodyText,
+                clue.AssetPath,
+                clue.TextScale,
+                clue.TextStyle,
+                clue.LocalPosition,
+                nextEulerAngles,
+                clue.LocalScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
+        public bool TryScaleClue(string clueId, float scaleDelta)
+        {
+            if (string.IsNullOrWhiteSpace(clueId) || !PalaceSessionState.TryGetClue(clueId, out var clue))
+            {
+                return false;
+            }
+
+            var nextScaleValue = Mathf.Clamp(clue.LocalScale.x + scaleDelta, 0.65f, 2.1f);
+            var nextScale = new Vector3(nextScaleValue, nextScaleValue, nextScaleValue);
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                clue.BodyText,
+                clue.AssetPath,
+                clue.TextScale,
+                clue.TextStyle,
+                clue.LocalPosition,
+                clue.LocalEulerAngles,
+                nextScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
+        public System.Collections.Generic.IReadOnlyList<ClueWallOption> GetAvailableClueWalls(RoomInstance? room)
+        {
+            var walls = new System.Collections.Generic.List<ClueWallOption>(4);
+            if (room == null)
+            {
+                return walls;
+            }
+
+            if (!room.OpenNorth)
+            {
+                walls.Add(new ClueWallOption("front", "Front Wall"));
+            }
+
+            if (!room.OpenWest)
+            {
+                walls.Add(new ClueWallOption("left", "Left Wall"));
+            }
+
+            if (!room.OpenEast)
+            {
+                walls.Add(new ClueWallOption("right", "Right Wall"));
+            }
+
+            if (!room.OpenSouth)
+            {
+                walls.Add(new ClueWallOption("back", "Back Wall"));
+            }
+
+            return walls;
+        }
+
+        public bool TryMoveClueToWall(RoomInstance? room, string clueId, string wallId)
+        {
+            if (room == null || string.IsNullOrWhiteSpace(clueId) || string.IsNullOrWhiteSpace(wallId) || !PalaceSessionState.TryGetClue(clueId, out var clue))
+            {
+                return false;
+            }
+
+            if (!TryParseClueWall(wallId, out var targetWall) || !IsWallAvailable(room, targetWall))
+            {
+                return false;
+            }
+
+            var nextLocalPosition = MoveClueToWall(room, clue.LocalPosition, targetWall);
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                clue.BodyText,
+                clue.AssetPath,
+                clue.TextScale,
+                clue.TextStyle,
+                nextLocalPosition,
+                Vector3.zero,
+                clue.LocalScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
         public void NavigateToParentRoom(RoomInstance? childRoom)
         {
             if (childRoom == null || string.IsNullOrWhiteSpace(childRoom.ParentRoomId))
@@ -399,7 +635,19 @@ namespace VisualEducationSystem.Rooms
                 initialColor = snapshot.AccentColor;
                 initialParentRoomId = snapshot.ParentRoomId;
             }
-            roomInstance.Initialize(name, initialName, initialColor, initialParentRoomId, center, size, center + new Vector3(0f, -0.4f, 0f), roomRenderers);
+            roomInstance.Initialize(
+                name,
+                initialName,
+                initialColor,
+                initialParentRoomId,
+                center,
+                size,
+                center + new Vector3(0f, -0.4f, 0f),
+                openWest,
+                openEast,
+                openNorth,
+                openSouth,
+                roomRenderers);
 
             var roomZone = roomRoot.gameObject.AddComponent<RoomZone>();
             roomZone.BindRoom(roomInstance);
@@ -433,6 +681,14 @@ namespace VisualEducationSystem.Rooms
                 }
 
                 BuildSubRoom(parentRoom, room.RoomId, room.DisplayName, room.AccentColor);
+            }
+        }
+
+        private void BuildSavedClues()
+        {
+            foreach (var clue in PalaceSessionState.GetAllClues())
+            {
+                RefreshClueVisual(clue.ClueId);
             }
         }
 
@@ -635,6 +891,517 @@ namespace VisualEducationSystem.Rooms
             }
 
             return fallback;
+        }
+
+        private string BuildUniqueClueId(string roomId)
+        {
+            var suffix = 1;
+            var clueId = $"{roomId}__Clue{suffix:00}";
+            while (PalaceSessionState.TryGetClue(clueId, out _))
+            {
+                suffix++;
+                clueId = $"{roomId}__Clue{suffix:00}";
+            }
+
+            return clueId;
+        }
+
+        private Vector3 GetDefaultClueLocalPosition(RoomInstance room, string clueId)
+        {
+            var roomClues = GetCluesForRoom(room);
+            var newClueIndex = roomClues.Count;
+            for (var i = 0; i < roomClues.Count; i++)
+            {
+                if (roomClues[i].ClueId == clueId)
+                {
+                    newClueIndex = i;
+                    break;
+                }
+            }
+
+            var column = newClueIndex % 3;
+            var row = newClueIndex / 3;
+            return new Vector3(-2f + column * 2f, -1.02f, room.RoomSize.z * 0.5f - 1.9f - row * 1.6f);
+        }
+
+        private Vector3 NormalizeClueLocalPosition(RoomInstance room, string clueId, Vector3 localPosition)
+        {
+            // Early Stage 2 notes used room-center-relative Y values that mounted notes too high.
+            if (localPosition.y > -0.35f)
+            {
+                return GetDefaultClueLocalPosition(room, clueId);
+            }
+
+            return SnapClueToWall(room, ClampClueLocalPosition(room, localPosition));
+        }
+
+        private Vector3 ClampClueLocalPosition(RoomInstance room, Vector3 localPosition)
+        {
+            var halfWidth = room.RoomSize.x * 0.5f - 1.05f;
+            var halfDepth = room.RoomSize.z * 0.5f - 1.2f;
+            return new Vector3(
+                Mathf.Clamp(localPosition.x, -halfWidth, halfWidth),
+                Mathf.Clamp(localPosition.y, -1.15f, 0.3f),
+                Mathf.Clamp(localPosition.z, -halfDepth, halfDepth));
+        }
+
+        private Vector3 SnapClueToWall(RoomInstance room, Vector3 localPosition)
+        {
+            var wall = GetNearestClueWall(room, localPosition);
+            if (!IsWallAvailable(room, wall))
+            {
+                foreach (var candidateWall in GetPreferredWallOrder(wall))
+                {
+                    if (IsWallAvailable(room, candidateWall))
+                    {
+                        wall = candidateWall;
+                        break;
+                    }
+                }
+            }
+
+            return MoveClueToWall(room, localPosition, wall);
+        }
+
+        private ClueWall GetNearestClueWall(RoomInstance room, Vector3 localPosition)
+        {
+            var halfWidth = room.RoomSize.x * 0.5f - 1.05f;
+            var halfDepth = room.RoomSize.z * 0.5f - 1.2f;
+
+            var distanceToEast = Mathf.Abs(halfWidth - localPosition.x);
+            var distanceToWest = Mathf.Abs(-halfWidth - localPosition.x);
+            var distanceToNorth = Mathf.Abs(halfDepth - localPosition.z);
+            var distanceToSouth = Mathf.Abs(-halfDepth - localPosition.z);
+
+            var closestWall = ClueWall.North;
+            var closestDistance = distanceToNorth;
+
+            if (distanceToSouth < closestDistance)
+            {
+                closestWall = ClueWall.South;
+                closestDistance = distanceToSouth;
+            }
+
+            if (distanceToEast < closestDistance)
+            {
+                closestWall = ClueWall.East;
+                closestDistance = distanceToEast;
+            }
+
+            if (distanceToWest < closestDistance)
+            {
+                closestWall = ClueWall.West;
+            }
+
+            return closestWall;
+        }
+
+        private static Quaternion GetClueWallRotation(ClueWall wall)
+        {
+            return wall switch
+            {
+                ClueWall.North => Quaternion.identity,
+                ClueWall.South => Quaternion.Euler(0f, 180f, 0f),
+                ClueWall.East => Quaternion.Euler(0f, 90f, 0f),
+                _ => Quaternion.Euler(0f, -90f, 0f)
+            };
+        }
+
+        private static bool TryParseClueWall(string wallId, out ClueWall wall)
+        {
+            switch (wallId.Trim().ToLowerInvariant())
+            {
+                case "front":
+                case "north":
+                    wall = ClueWall.North;
+                    return true;
+                case "back":
+                case "south":
+                    wall = ClueWall.South;
+                    return true;
+                case "right":
+                case "east":
+                    wall = ClueWall.East;
+                    return true;
+                case "left":
+                case "west":
+                    wall = ClueWall.West;
+                    return true;
+                default:
+                    wall = ClueWall.North;
+                    return false;
+            }
+        }
+
+        private static System.Collections.Generic.IEnumerable<ClueWall> GetPreferredWallOrder(ClueWall startingWall)
+        {
+            yield return startingWall;
+            yield return ClueWall.North;
+            yield return ClueWall.West;
+            yield return ClueWall.East;
+            yield return ClueWall.South;
+        }
+
+        private static bool IsWallAvailable(RoomInstance room, ClueWall wall)
+        {
+            return wall switch
+            {
+                ClueWall.North => !room.OpenNorth,
+                ClueWall.South => !room.OpenSouth,
+                ClueWall.East => !room.OpenEast,
+                _ => !room.OpenWest
+            };
+        }
+
+        private static float GetClueWallTangent(ClueWall wall, Vector3 localPosition)
+        {
+            return wall == ClueWall.North || wall == ClueWall.South ? localPosition.x : localPosition.z;
+        }
+
+        private Vector3 MoveClueToWall(RoomInstance room, Vector3 localPosition, ClueWall targetWall)
+        {
+            var clampedPosition = ClampClueLocalPosition(room, localPosition);
+            var currentWall = GetNearestClueWall(room, clampedPosition);
+            var tangent = GetClueWallTangent(currentWall, clampedPosition);
+            var halfWidth = room.RoomSize.x * 0.5f - 1.05f;
+            var halfDepth = room.RoomSize.z * 0.5f - 1.2f;
+            var clampedY = Mathf.Clamp(clampedPosition.y, -1.15f, 0.3f);
+
+            return targetWall switch
+            {
+                ClueWall.North => new Vector3(Mathf.Clamp(tangent, -halfWidth, halfWidth), clampedY, halfDepth - ClueWallInset),
+                ClueWall.South => new Vector3(Mathf.Clamp(tangent, -halfWidth, halfWidth), clampedY, -halfDepth + ClueWallInset),
+                ClueWall.East => new Vector3(halfWidth - ClueWallInset, clampedY, Mathf.Clamp(tangent, -halfDepth, halfDepth)),
+                _ => new Vector3(-halfWidth + ClueWallInset, clampedY, Mathf.Clamp(tangent, -halfDepth, halfDepth))
+            };
+        }
+
+        private void RefreshClueVisual(string clueId)
+        {
+            RemoveClueVisual(clueId);
+
+            if (!PalaceSessionState.TryGetClue(clueId, out var clue) || !roomInstances.TryGetValue(clue.RoomId, out var room))
+            {
+                return;
+            }
+
+            var clueRoot = new GameObject($"Clue_{clueId}").transform;
+            clueRoot.SetParent(room.transform);
+            var anchoredPosition = NormalizeClueLocalPosition(room, clueId, clue.LocalPosition);
+            var anchoredWall = GetNearestClueWall(room, anchoredPosition);
+            clueRoot.position = room.LayoutCenter + anchoredPosition + new Vector3(0f, CluePivotHeightOffset, 0f);
+            clueRoot.rotation = GetClueWallRotation(anchoredWall);
+            clueRoot.localScale = Vector3.one;
+
+            var visualPivot = new GameObject("VisualPivot").transform;
+            visualPivot.SetParent(clueRoot);
+            visualPivot.localPosition = Vector3.zero;
+            // Wall placement now owns clue facing. Ignore older per-clue rotation so
+            // notes/images mount consistently on every wall across rooms and sub-rooms.
+            visualPivot.localRotation = Quaternion.identity;
+            visualPivot.localScale = clue.LocalScale;
+
+            var baseColor = Color.Lerp(room.AccentColor, Color.white, 0.55f);
+            switch (clue.ClueType)
+            {
+                case PalaceClueType.Note:
+                    BuildNoteClueVisual(visualPivot, clue, baseColor);
+                    break;
+                case PalaceClueType.Image:
+                    BuildImageClueVisual(visualPivot, clue, baseColor);
+                    break;
+                default:
+                    BuildGenericClueVisual(visualPivot, clue, baseColor);
+                    break;
+            }
+
+            clueVisualRoots[clueId] = clueRoot;
+        }
+
+        private void RemoveClueVisual(string clueId)
+        {
+            if (!clueVisualRoots.TryGetValue(clueId, out var clueRoot))
+            {
+                foreach (var room in roomInstances.Values)
+                {
+                    var candidate = room.transform.Find($"Clue_{clueId}");
+                    if (candidate != null)
+                    {
+                        clueRoot = candidate;
+                        break;
+                    }
+                }
+
+                if (clueRoot == null)
+                {
+                    return;
+                }
+            }
+
+            clueVisualRoots.Remove(clueId);
+            Destroy(clueRoot.gameObject);
+        }
+
+        private void BuildNoteClueVisual(Transform root, PalaceSessionState.ClueSnapshot clue, Color baseColor)
+        {
+            var fontStyle = GetUnityFontStyle(clue.TextStyle);
+            var textScale = clue.TextScale;
+            var wrappedTitle = WrapClueText(clue.Title, 12, 2);
+            var wrappedBody = WrapClueText(clue.BodyText, 19, 4);
+            var titleLineCount = CountWrappedLines(wrappedTitle);
+            var faceColor = new Color(1f, 0.98f, 0.86f, 1f);
+            var frameColor = new Color(0.34f, 0.36f, 0.34f, 1f);
+
+            var noteAssembly = new GameObject("NoteAssembly").transform;
+            noteAssembly.SetParent(root);
+            noteAssembly.localPosition = Vector3.zero;
+            noteAssembly.localRotation = Quaternion.identity;
+            noteAssembly.localScale = Vector3.one;
+
+            var noteBacker = CreatePrimitive(noteAssembly, PrimitiveType.Cube, "NoteBacker", new Vector3(0f, 0f, 0.08f), new Vector3(1.76f, 1.32f, 0.03f), frameColor);
+            var noteBoardCore = CreatePrimitive(noteAssembly, PrimitiveType.Cube, "NoteBoardCore", Vector3.zero, new Vector3(1.66f, 1.22f, 0.08f), frameColor);
+            var noteFace = CreatePrimitive(noteAssembly, PrimitiveType.Cube, "NoteFace", new Vector3(0f, 0f, -0.035f), new Vector3(1.54f, 1.1f, 0.02f), faceColor);
+            noteBacker.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(frameColor);
+            noteBoardCore.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(frameColor);
+            noteFace.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(faceColor);
+
+            var notePin = CreatePrimitive(noteAssembly, PrimitiveType.Sphere, "NotePin", new Vector3(0f, 0.6f, -0.09f), new Vector3(0.13f, 0.13f, 0.13f), new Color(0.84f, 0.12f, 0.12f));
+            notePin.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(new Color(0.84f, 0.12f, 0.12f));
+
+            var titleY = titleLineCount > 1 ? 0.24f : 0.28f;
+            BuildClueText(noteAssembly, "NoteTitle", wrappedTitle, new Vector3(0f, titleY, -0.1f), Mathf.RoundToInt(28f * textScale), 0.04f * textScale, new Color(0.02f, 0.02f, 0.03f), TextAnchor.MiddleCenter, fontStyle);
+            BuildClueText(noteAssembly, "NoteBody", wrappedBody, new Vector3(0f, -0.22f, -0.1f), Mathf.RoundToInt(18f * textScale), 0.028f * textScale, new Color(0.04f, 0.04f, 0.05f), TextAnchor.MiddleCenter, fontStyle);
+        }
+
+        private void BuildGenericClueVisual(Transform root, PalaceSessionState.ClueSnapshot clue, Color baseColor)
+        {
+            CreatePrimitive(root, PrimitiveType.Cube, "CluePanel", new Vector3(0f, -0.18f, 0f), new Vector3(1.7f, 1f, 0.08f), baseColor);
+            BuildClueText(root, "ClueTitle", clue.Title, new Vector3(0f, -0.05f, 0.08f), 34, 0.05f, new Color(0.08f, 0.1f, 0.14f), TextAnchor.MiddleCenter, FontStyle.Normal);
+            BuildClueText(root, "ClueType", clue.ClueType.ToString(), new Vector3(0f, -0.4f, 0.08f), 26, 0.045f, new Color(0.14f, 0.16f, 0.2f), TextAnchor.MiddleCenter, FontStyle.Normal);
+        }
+
+        private void BuildImageClueVisual(Transform root, PalaceSessionState.ClueSnapshot clue, Color baseColor)
+        {
+            var imageFrameColor = new Color(0.3f, 0.32f, 0.34f, 1f);
+            var imageMatColor = new Color(0.96f, 0.96f, 0.93f, 1f);
+            var imageFrameBack = CreatePrimitive(root, PrimitiveType.Cube, "ImageFrameBack", new Vector3(0f, 0f, 0.08f), new Vector3(1.94f, 1.46f, 0.04f), imageFrameColor);
+            var imageFrameCore = CreatePrimitive(root, PrimitiveType.Cube, "ImageFrameCore", new Vector3(0f, 0f, 0f), new Vector3(1.84f, 1.36f, 0.08f), imageFrameColor);
+            var imageMat = CreatePrimitive(root, PrimitiveType.Cube, "ImageMat", new Vector3(0f, 0f, -0.03f), new Vector3(1.62f, 1.14f, 0.02f), imageMatColor);
+            var framePin = CreatePrimitive(root, PrimitiveType.Sphere, "FramePin", new Vector3(0f, 0.62f, -0.08f), new Vector3(0.08f, 0.08f, 0.08f), new Color(0.65f, 0.16f, 0.16f));
+            imageFrameBack.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(imageFrameColor);
+            imageFrameCore.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(imageFrameColor);
+            imageMat.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(imageMatColor);
+            framePin.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(new Color(0.65f, 0.16f, 0.16f));
+
+            var imagePlane = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            imagePlane.name = "ImagePlane";
+            imagePlane.transform.SetParent(root);
+            imagePlane.transform.localPosition = new Vector3(0f, -0.02f, -0.055f);
+            imagePlane.transform.localRotation = Quaternion.identity;
+            imagePlane.transform.localScale = new Vector3(1.42f, 0.92f, 1f);
+
+            if (!TryApplyImageTexture(imagePlane.GetComponent<Renderer>(), clue.AssetPath))
+            {
+                imagePlane.GetComponent<Renderer>().sharedMaterial = CreateMaterial(Color.Lerp(baseColor, Color.white, 0.35f));
+                BuildClueText(root, "ImageFallbackTitle", WrapClueText(clue.Title, 12, 2), new Vector3(0f, 0.2f, -0.08f), 28, 0.042f, new Color(0.08f, 0.1f, 0.14f), TextAnchor.MiddleCenter, FontStyle.Normal);
+                BuildClueText(root, "ImageFallbackBody", WrapClueText(Path.GetFileName(clue.AssetPath), 18, 3), new Vector3(0f, -0.18f, -0.08f), 20, 0.032f, new Color(0.15f, 0.17f, 0.2f), TextAnchor.MiddleCenter, FontStyle.Normal);
+            }
+            else
+            {
+                BuildClueText(root, "ImageCaption", WrapClueText(clue.Title, 14, 2), new Vector3(0f, -0.68f, -0.09f), 22, 0.034f, new Color(0.04f, 0.05f, 0.06f), TextAnchor.MiddleCenter, FontStyle.Normal);
+            }
+
+            Destroy(imagePlane.GetComponent<Collider>());
+        }
+
+        private static void BuildClueText(Transform parent, string name, string content, Vector3 localPosition, int fontSize, float characterSize, Color color, TextAnchor anchor, FontStyle fontStyle)
+        {
+            var textObject = new GameObject(name).transform;
+            textObject.SetParent(parent);
+            textObject.localPosition = localPosition;
+            textObject.localRotation = Quaternion.identity;
+
+            var textMesh = textObject.gameObject.AddComponent<TextMesh>();
+            textMesh.text = content;
+            textMesh.fontSize = fontSize;
+            textMesh.characterSize = characterSize;
+            textMesh.anchor = anchor;
+            textMesh.alignment = TextAlignment.Center;
+            textMesh.fontStyle = fontStyle;
+            textMesh.color = color;
+            ConfigureLabelTextRenderer(textObject.GetComponent<MeshRenderer>(), textMesh);
+        }
+
+        private static FontStyle GetUnityFontStyle(PalaceClueTextStyle textStyle)
+        {
+            return textStyle switch
+            {
+                PalaceClueTextStyle.Bold => FontStyle.Bold,
+                PalaceClueTextStyle.Italic => FontStyle.Italic,
+                _ => FontStyle.Normal
+            };
+        }
+
+        private static bool TryApplyImageTexture(Renderer? renderer, string assetPath)
+        {
+            if (renderer == null || string.IsNullOrWhiteSpace(assetPath) || !File.Exists(assetPath))
+            {
+                return false;
+            }
+
+            var imageBytes = File.ReadAllBytes(assetPath);
+            if (imageBytes.Length == 0)
+            {
+                return false;
+            }
+
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!texture.LoadImage(imageBytes))
+            {
+                Object.Destroy(texture);
+                return false;
+            }
+
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            var shader = Shader.Find("Unlit/Texture")
+                ?? Shader.Find("Sprites/Default")
+                ?? Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Standard");
+            if (shader == null)
+            {
+                Object.Destroy(texture);
+                return false;
+            }
+
+            var material = new Material(shader);
+            if (material.HasProperty("_MainTex"))
+            {
+                material.mainTexture = texture;
+            }
+
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", texture);
+            }
+
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", Color.white);
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", Color.white);
+            }
+
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            return true;
+        }
+
+        private static string WrapClueText(string value, int maxLineLength, int maxLines)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "Empty note";
+            }
+
+            var normalized = value.Trim().Replace('\n', ' ');
+            var words = normalized.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+            var lines = new System.Collections.Generic.List<string>(maxLines);
+            var currentLine = string.Empty;
+
+            foreach (var word in words)
+            {
+                var remainingWord = word;
+                while (remainingWord.Length > 0)
+                {
+                    var allowedLength = maxLineLength - (string.IsNullOrEmpty(currentLine) ? 0 : 1);
+                    if (allowedLength <= 0)
+                    {
+                        lines.Add(currentLine);
+                        if (lines.Count >= maxLines)
+                        {
+                            return AppendEllipsis(lines, maxLineLength);
+                        }
+
+                        currentLine = string.Empty;
+                        allowedLength = maxLineLength;
+                    }
+
+                    if (remainingWord.Length <= allowedLength)
+                    {
+                        currentLine = string.IsNullOrEmpty(currentLine)
+                            ? remainingWord
+                            : currentLine + " " + remainingWord;
+                        remainingWord = string.Empty;
+                        continue;
+                    }
+
+                    if (!string.IsNullOrEmpty(currentLine))
+                    {
+                        lines.Add(currentLine);
+                        if (lines.Count >= maxLines)
+                        {
+                            return AppendEllipsis(lines, maxLineLength);
+                        }
+
+                        currentLine = string.Empty;
+                        continue;
+                    }
+
+                    lines.Add(remainingWord.Substring(0, maxLineLength));
+                    if (lines.Count >= maxLines)
+                    {
+                        return AppendEllipsis(lines, maxLineLength);
+                    }
+
+                    remainingWord = remainingWord.Substring(maxLineLength);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(currentLine))
+            {
+                lines.Add(currentLine);
+            }
+
+            return string.Join("\n", lines);
+        }
+
+        private static string AppendEllipsis(System.Collections.Generic.List<string> lines, int maxLineLength)
+        {
+            if (lines.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var lastLine = lines[lines.Count - 1];
+            lines[lines.Count - 1] = lastLine.Length >= maxLineLength - 2
+                ? lastLine.Substring(0, maxLineLength - 2) + ".."
+                : lastLine + "..";
+            return string.Join("\n", lines);
+        }
+
+        private static int CountWrappedLines(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return 1;
+            }
+
+            var count = 1;
+            foreach (var character in value)
+            {
+                if (character == '\n')
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private void BuildRoomFeature(RoomInstance room)
@@ -909,18 +1676,41 @@ namespace VisualEducationSystem.Rooms
         {
             var roomRoot = room.transform;
             var renderers = new System.Collections.Generic.List<Renderer>();
+            var openWest = room.OpenWest;
+            var openEast = room.OpenEast;
+            var openNorth = room.OpenNorth;
+            var openSouth = room.OpenSouth;
 
             if (outwardDirection == Vector3.right || outwardDirection == Vector3.left)
             {
-                RemoveChildrenByPrefix(roomRoot, outwardDirection == Vector3.right ? "WallEast" : "WallWest");
-                renderers.AddRange(CreateSideWall(roomRoot, outwardDirection == Vector3.right ? "WallEast" : "WallWest", room.LayoutCenter, room.RoomSize, room.AccentColor, outwardDirection == Vector3.right, true));
+                var openingEast = outwardDirection == Vector3.right;
+                RemoveChildrenByPrefix(roomRoot, openingEast ? "WallEast" : "WallWest");
+                renderers.AddRange(CreateSideWall(roomRoot, openingEast ? "WallEast" : "WallWest", room.LayoutCenter, room.RoomSize, room.AccentColor, openingEast, true));
+                if (openingEast)
+                {
+                    openEast = true;
+                }
+                else
+                {
+                    openWest = true;
+                }
             }
             else
             {
-                RemoveChildrenByPrefix(roomRoot, outwardDirection == Vector3.forward ? "WallNorth" : "WallSouth");
-                renderers.AddRange(CreateFrontBackWall(roomRoot, outwardDirection == Vector3.forward ? "WallNorth" : "WallSouth", room.LayoutCenter, room.RoomSize, room.AccentColor, outwardDirection == Vector3.forward, true));
+                var openingNorth = outwardDirection == Vector3.forward;
+                RemoveChildrenByPrefix(roomRoot, openingNorth ? "WallNorth" : "WallSouth");
+                renderers.AddRange(CreateFrontBackWall(roomRoot, openingNorth ? "WallNorth" : "WallSouth", room.LayoutCenter, room.RoomSize, room.AccentColor, openingNorth, true));
+                if (openingNorth)
+                {
+                    openNorth = true;
+                }
+                else
+                {
+                    openSouth = true;
+                }
             }
 
+            room.SetWallOpenings(openWest, openEast, openNorth, openSouth);
             room.RegisterRenderers(renderers);
         }
 
@@ -991,8 +1781,9 @@ namespace VisualEducationSystem.Rooms
         {
             var primitive = GameObject.CreatePrimitive(primitiveType);
             primitive.name = name;
-            primitive.transform.SetParent(parent);
+            primitive.transform.SetParent(parent, false);
             primitive.transform.localPosition = position;
+            primitive.transform.localRotation = Quaternion.identity;
             primitive.transform.localScale = scale;
             primitive.GetComponent<Renderer>().sharedMaterial = CreateMaterial(color);
             Destroy(primitive.GetComponent<Collider>());
@@ -1016,6 +1807,28 @@ namespace VisualEducationSystem.Rooms
         {
             var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             material.color = color;
+            return material;
+        }
+
+        private static Material CreateUnlitMaterial(Color color)
+        {
+            var shader = Shader.Find("Unlit/Color") ?? Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null)
+            {
+                return CreateMaterial(color);
+            }
+
+            var material = new Material(shader);
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", color);
+            }
+
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", color);
+            }
+
             return material;
         }
 

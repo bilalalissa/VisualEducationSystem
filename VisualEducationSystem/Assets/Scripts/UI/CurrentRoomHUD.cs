@@ -43,7 +43,7 @@ namespace VisualEducationSystem.UI
 
         private void Update()
         {
-            if (Keyboard.current != null && Keyboard.current.mKey.wasPressedThisFrame)
+            if (Keyboard.current != null && !RoomEditorController.IsAnyEditorOpen && Keyboard.current.mKey.wasPressedThisFrame)
             {
                 showFullMap = !showFullMap;
             }

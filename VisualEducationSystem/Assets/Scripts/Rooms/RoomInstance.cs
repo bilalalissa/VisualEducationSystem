@@ -13,6 +13,10 @@ namespace VisualEducationSystem.Rooms
         [SerializeField] private Vector3 layoutCenter = Vector3.zero;
         [SerializeField] private Vector3 roomSize = Vector3.zero;
         [SerializeField] private Vector3 spawnPoint = Vector3.zero;
+        [SerializeField] private bool openWest;
+        [SerializeField] private bool openEast;
+        [SerializeField] private bool openNorth;
+        [SerializeField] private bool openSouth;
 
         private readonly List<Renderer> roomRenderers = new();
         private TextMesh? entranceText;
@@ -26,8 +30,24 @@ namespace VisualEducationSystem.Rooms
         public Vector3 LayoutCenter => layoutCenter;
         public Vector3 RoomSize => roomSize;
         public Vector3 SpawnPoint => spawnPoint;
+        public bool OpenWest => openWest;
+        public bool OpenEast => openEast;
+        public bool OpenNorth => openNorth;
+        public bool OpenSouth => openSouth;
 
-        public void Initialize(string id, string displayName, Color color, string parentId, Vector3 roomCenter, Vector3 size, Vector3 roomSpawnPoint, IEnumerable<Renderer> renderers)
+        public void Initialize(
+            string id,
+            string displayName,
+            Color color,
+            string parentId,
+            Vector3 roomCenter,
+            Vector3 size,
+            Vector3 roomSpawnPoint,
+            bool westOpen,
+            bool eastOpen,
+            bool northOpen,
+            bool southOpen,
+            IEnumerable<Renderer> renderers)
         {
             roomId = id;
             roomDisplayName = displayName;
@@ -36,10 +56,22 @@ namespace VisualEducationSystem.Rooms
             layoutCenter = roomCenter;
             roomSize = size;
             spawnPoint = roomSpawnPoint;
+            openWest = westOpen;
+            openEast = eastOpen;
+            openNorth = northOpen;
+            openSouth = southOpen;
             roomRenderers.Clear();
             roomRenderers.AddRange(renderers);
             ApplyAccentColor(color);
             PalaceSessionState.SetRoom(roomId, roomDisplayName, accentColor, parentRoomId);
+        }
+
+        public void SetWallOpenings(bool westOpen, bool eastOpen, bool northOpen, bool southOpen)
+        {
+            openWest = westOpen;
+            openEast = eastOpen;
+            openNorth = northOpen;
+            openSouth = southOpen;
         }
 
         public void AttachEntranceSign(TextMesh labelText, Renderer plateRenderer)
