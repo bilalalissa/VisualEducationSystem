@@ -4,3 +4,9 @@ docs/~$Storyboard-Concept-Slides.pptx
 docs/assets/demo-preview-palette.png
 docs/Presentation-QA-Final.md
 docs/Presentation-Speech-Notes-Final.md
+.DS_Store
+VisualEducationSystem/Logs/
+*.log
+docs/Game-Testing-Plan.pdf
+docs/Meeting-2-Docs.zip
+docs/Submission-Summary.pdf

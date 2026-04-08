@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using VisualEducationSystem.Interaction;
 
 namespace VisualEducationSystem.Player
 {
@@ -20,6 +21,12 @@ namespace VisualEducationSystem.Player
         {
             controller = GetComponent<CharacterController>();
             EnsureCamera();
+            RuntimeEventLogger.EnsureOn(gameObject);
+            HandTrackingCoordinator.EnsureOn(gameObject);
+            if (GetComponent<ClueGestureInteractionController>() == null)
+            {
+                gameObject.AddComponent<ClueGestureInteractionController>();
+            }
         }
 
         private void OnEnable()
@@ -37,6 +44,7 @@ namespace VisualEducationSystem.Player
         {
             inputEnabled = enabled;
             SetCursorLockState();
+            RuntimeEventLogger.LogEvent("player.input", enabled ? "Player input enabled." : "Player input disabled.");
         }
 
         public void TeleportTo(Vector3 worldPosition, Quaternion worldRotation)
@@ -50,6 +58,7 @@ namespace VisualEducationSystem.Player
             }
             verticalVelocity = 0f;
             controller.enabled = true;
+            RuntimeEventLogger.LogEvent("player.teleport", $"Teleported to {worldPosition} with yaw {worldRotation.eulerAngles.y:F1}.");
         }
 
         private void Update()

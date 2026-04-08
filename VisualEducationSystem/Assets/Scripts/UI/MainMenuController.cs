@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using VisualEducationSystem.Interaction;
 using VisualEducationSystem.Save;
 
 namespace VisualEducationSystem.UI
@@ -80,6 +81,7 @@ namespace VisualEducationSystem.UI
             if (GUILayout.Button("New Palace", GUILayout.Height(40f)))
             {
                 menuMode = MenuMode.Create;
+                RuntimeEventLogger.LogEvent("main_menu", "Opened create palace menu.");
             }
 
             GUILayout.Space(8f);
@@ -87,6 +89,7 @@ namespace VisualEducationSystem.UI
             if (GUILayout.Button("Load Palace", GUILayout.Height(40f)))
             {
                 menuMode = MenuMode.Load;
+                RuntimeEventLogger.LogEvent("main_menu", "Opened load palace menu.");
             }
 
             GUILayout.Space(8f);
@@ -94,12 +97,14 @@ namespace VisualEducationSystem.UI
             if (GUILayout.Button("Settings", GUILayout.Height(40f)))
             {
                 menuMode = MenuMode.Settings;
+                RuntimeEventLogger.LogEvent("main_menu", "Opened settings menu.");
             }
 
             GUILayout.Space(8f);
 
             if (GUILayout.Button("Exit", GUILayout.Height(40f)))
             {
+                RuntimeEventLogger.LogEvent("main_menu", "Exit requested from root menu.");
                 ExitApplication();
             }
         }
@@ -117,11 +122,13 @@ namespace VisualEducationSystem.UI
                 if (!PalaceSaveManager.IsPalaceNameAvailable(newPalaceName))
                 {
                     menuStatus = "Choose a unique palace name.";
+                    RuntimeEventLogger.LogEvent("main_menu", $"Create palace rejected for duplicate name \"{newPalaceName}\".");
                     return;
                 }
 
                 PalaceSaveManager.CreateNewPalace(newPalaceName);
                 menuStatus = string.Empty;
+                RuntimeEventLogger.LogEvent("main_menu", $"Created new palace \"{newPalaceName}\" and entering scene.");
                 LoadScene(prototypeSceneName);
             }
 
@@ -137,6 +144,7 @@ namespace VisualEducationSystem.UI
             {
                 menuStatus = string.Empty;
                 menuMode = MenuMode.Root;
+                RuntimeEventLogger.LogEvent("main_menu", "Returned to root menu from create menu.");
             }
         }
 
@@ -165,11 +173,13 @@ namespace VisualEducationSystem.UI
                     {
                         if (PalaceSaveManager.LoadPalaceIntoSession(palace.PalaceId))
                         {
+                            RuntimeEventLogger.LogEvent("main_menu", $"Loaded palace \"{palace.DisplayName}\".");
                             LoadScene(loadSceneName);
                         }
                         else
                         {
                             menuStatus = "Could not load that palace.";
+                            RuntimeEventLogger.LogEvent("main_menu", $"Failed to load palace \"{palace.DisplayName}\".");
                         }
                     }
 
@@ -178,6 +188,7 @@ namespace VisualEducationSystem.UI
                         menuStatus = PalaceSaveManager.DeletePalace(palace.PalaceId)
                             ? $"Deleted palace: {palace.DisplayName}"
                             : $"Could not delete palace: {palace.DisplayName}";
+                        RuntimeEventLogger.LogEvent("main_menu", menuStatus);
                         GUIUtility.ExitGUI();
                     }
 
@@ -200,6 +211,7 @@ namespace VisualEducationSystem.UI
             {
                 menuStatus = string.Empty;
                 menuMode = MenuMode.Root;
+                RuntimeEventLogger.LogEvent("main_menu", "Returned to root menu from load menu.");
             }
         }
 

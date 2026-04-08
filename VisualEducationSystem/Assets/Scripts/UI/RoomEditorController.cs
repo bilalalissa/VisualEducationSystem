@@ -2,6 +2,7 @@
 using System.IO;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using VisualEducationSystem.Interaction;
 using VisualEducationSystem.Player;
 using VisualEducationSystem.Rooms;
 using VisualEducationSystem.Save;
@@ -191,6 +192,7 @@ namespace VisualEducationSystem.UI
                     draftClueTextScale = 1f;
                     draftClueTextStyle = PalaceClueTextStyle.Normal;
                     editorStatus = "Creating note clue.";
+                    RuntimeEventLogger.LogEvent("room_editor.clue", "Started creating a new note clue.");
                 }
 
                 if (GUILayout.Button("New Image Clue", GUILayout.Height(30f)))
@@ -203,6 +205,7 @@ namespace VisualEducationSystem.UI
                     draftClueTextScale = 1f;
                     draftClueTextStyle = PalaceClueTextStyle.Normal;
                     editorStatus = "Creating image clue.";
+                    RuntimeEventLogger.LogEvent("room_editor.clue", "Started creating a new image clue.");
                 }
 
                 foreach (var clue in clues)
@@ -217,6 +220,7 @@ namespace VisualEducationSystem.UI
                         draftClueTextScale = clue.TextScale;
                         draftClueTextStyle = clue.TextStyle;
                         editorStatus = $"Editing clue: {clue.Title}";
+                        RuntimeEventLogger.LogEvent("room_editor.clue", $"Editing clue {clue.ClueId} ({clue.ClueType})");
                     }
 
                     if (GUILayout.Button($"Delete {clue.ClueType}: {clue.Title}", GUILayout.Height(26f)))
@@ -237,6 +241,7 @@ namespace VisualEducationSystem.UI
                         GUIUtility.keyboardControl = 0;
                         selectedClueId = string.Empty;
                         editorStatus = "Clue deleted.";
+                        RuntimeEventLogger.LogEvent("room_editor.clue", $"Deleted clue {clue.ClueId} ({clue.ClueType})");
                         break;
                     }
                 }
@@ -260,6 +265,7 @@ namespace VisualEducationSystem.UI
                     if (GUILayout.Button("Clear Path", GUILayout.Height(28f)))
                     {
                         draftClueAssetPath = string.Empty;
+                        RuntimeEventLogger.LogEvent("room_editor.clue", "Cleared image clue path.");
                     }
                     GUILayout.EndHorizontal();
                 }
@@ -336,6 +342,9 @@ namespace VisualEducationSystem.UI
                         editorStatus = wasNewClue
                             ? (selectedClueType == PalaceClueType.Image ? "Image clue created." : "Note clue created.")
                             : "Clue updated.";
+                        RuntimeEventLogger.LogEvent(
+                            "room_editor.clue",
+                            $"{(wasNewClue ? "Saved new" : "Updated")} {selectedClueType} clue {savedClueId} in room {roomTracker.CurrentRoom.RoomId}.");
                     }
                 }
 
@@ -345,6 +354,7 @@ namespace VisualEducationSystem.UI
                     previewImageZoom = 1f;
                     previewImagePan = Vector2.zero;
                     isPreviewOpen = true;
+                    RuntimeEventLogger.LogEvent("room_editor.preview", $"Opened preview for {(selectedClueType == PalaceClueType.Image ? "image" : "note")} clue draft.");
                 }
                 GUI.enabled = true;
 
@@ -482,6 +492,7 @@ namespace VisualEducationSystem.UI
             isPreviewOpen = false;
             editorStatus = string.Empty;
             playerController.SetInputEnabled(false);
+            RuntimeEventLogger.LogEvent("room_editor", $"Opened room editor for {currentRoom.RoomId} ({currentRoom.RoomDisplayName}).");
         }
 
         private void CloseEditor()
@@ -498,6 +509,7 @@ namespace VisualEducationSystem.UI
             draftClueTextStyle = PalaceClueTextStyle.Normal;
             isPreviewOpen = false;
             playerController.SetInputEnabled(true);
+            RuntimeEventLogger.LogEvent("room_editor", "Closed room editor.");
         }
 
         private static string GetTextScaleLabel(float textScale)
@@ -523,9 +535,11 @@ namespace VisualEducationSystem.UI
             {
                 draftClueAssetPath = selectedPath;
                 editorStatus = "Image selected.";
+                RuntimeEventLogger.LogEvent("room_editor.clue", $"Selected local image path: {selectedPath}");
             }
 #else
             editorStatus = "Local file browsing is available in the Unity Editor. Use the path field outside the editor.";
+            RuntimeEventLogger.LogEvent("room_editor.clue", "Image browse requested outside Unity Editor.");
 #endif
         }
 
@@ -770,6 +784,7 @@ namespace VisualEducationSystem.UI
             roomTracker.RefreshHud();
             PalaceSaveManager.SaveCurrentState();
             editorStatus = "Changes saved.";
+            RuntimeEventLogger.LogEvent("room_editor.room", $"Saved room changes for {currentRoom.RoomId} with display name \"{draftName}\".");
         }
 
         private void ApplyDraftPreview()
@@ -796,6 +811,7 @@ namespace VisualEducationSystem.UI
             {
                 PalaceSaveManager.SaveCurrentState();
                 editorStatus = "Clue moved.";
+                RuntimeEventLogger.LogEvent("room_editor.clue", $"Nudged clue {selectedClueId} by {localDelta}.");
             }
         }
 
@@ -810,6 +826,7 @@ namespace VisualEducationSystem.UI
             {
                 PalaceSaveManager.SaveCurrentState();
                 editorStatus = "Clue moved to wall.";
+                RuntimeEventLogger.LogEvent("room_editor.clue", $"Moved clue {selectedClueId} to wall {wallId}.");
             }
         }
 
@@ -824,6 +841,7 @@ namespace VisualEducationSystem.UI
             {
                 PalaceSaveManager.SaveCurrentState();
                 editorStatus = scaleDelta > 0f ? "Clue enlarged." : "Clue reduced.";
+                RuntimeEventLogger.LogEvent("room_editor.clue", $"Scaled clue {selectedClueId} by delta {scaleDelta:F2}.");
             }
         }
     }

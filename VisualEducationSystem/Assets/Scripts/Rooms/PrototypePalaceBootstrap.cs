@@ -2,6 +2,7 @@
 using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
+using VisualEducationSystem.Interaction;
 using VisualEducationSystem.UI;
 
 namespace VisualEducationSystem.Rooms
@@ -505,6 +506,31 @@ namespace VisualEducationSystem.Rooms
             }
 
             var nextLocalPosition = MoveClueToWall(room, clue.LocalPosition, targetWall);
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                clue.BodyText,
+                clue.AssetPath,
+                clue.TextScale,
+                clue.TextStyle,
+                nextLocalPosition,
+                Vector3.zero,
+                clue.LocalScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
+        public bool TryMoveClueToWorldPoint(RoomInstance? room, string clueId, Vector3 worldPoint)
+        {
+            if (room == null || string.IsNullOrWhiteSpace(clueId) || !PalaceSessionState.TryGetClue(clueId, out var clue))
+            {
+                return false;
+            }
+
+            var localPosition = worldPoint - room.LayoutCenter - new Vector3(0f, CluePivotHeightOffset, 0f);
+            var nextLocalPosition = SnapClueToWall(room, ClampClueLocalPosition(room, localPosition));
             PalaceSessionState.SetClue(
                 clueId,
                 clue.RoomId,
@@ -1114,6 +1140,12 @@ namespace VisualEducationSystem.Rooms
                     BuildGenericClueVisual(visualPivot, clue, baseColor);
                     break;
             }
+
+            var interactionCollider = clueRoot.gameObject.AddComponent<BoxCollider>();
+            interactionCollider.center = Vector3.zero;
+            interactionCollider.size = new Vector3(2.2f, 1.7f, 0.28f);
+            var interactionTarget = clueRoot.gameObject.AddComponent<ClueInteractionTarget>();
+            interactionTarget.Initialize(clueId, clue.RoomId);
 
             clueVisualRoots[clueId] = clueRoot;
         }
