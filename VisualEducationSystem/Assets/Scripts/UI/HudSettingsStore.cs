@@ -35,6 +35,9 @@ namespace VisualEducationSystem.UI
         public bool autoHideRoom = true;
         public bool autoHideHelp = true;
         public bool autoHideMiniMap = true;
+        public bool showHandTrackingPanel = true;
+        public bool showHandTrackingCameraPreview = true;
+        public bool showHandTrackingIndicator = true;
     }
 
     public static class HudSettingsStore
@@ -208,6 +211,57 @@ namespace VisualEducationSystem.UI
             settings.autoHideHelp = enableAll;
             settings.autoHideMiniMap = enableAll;
             Save();
+        }
+
+        public static bool IsHandTrackingPanelVisible()
+        {
+            return Get().showHandTrackingPanel;
+        }
+
+        public static void ToggleHandTrackingPanelVisibility()
+        {
+            var settings = Get();
+            settings.showHandTrackingPanel = !settings.showHandTrackingPanel;
+            Save();
+        }
+
+        public static string GetHandTrackingPanelVisibilityLabel()
+        {
+            return IsHandTrackingPanelVisible() ? "Shown" : "Hidden";
+        }
+
+        public static bool IsHandTrackingCameraPreviewVisible()
+        {
+            return Get().showHandTrackingCameraPreview;
+        }
+
+        public static void ToggleHandTrackingCameraPreviewVisibility()
+        {
+            var settings = Get();
+            settings.showHandTrackingCameraPreview = !settings.showHandTrackingCameraPreview;
+            Save();
+        }
+
+        public static string GetHandTrackingCameraPreviewVisibilityLabel()
+        {
+            return IsHandTrackingCameraPreviewVisible() ? "Shown" : "Hidden";
+        }
+
+        public static bool IsHandTrackingIndicatorVisible()
+        {
+            return Get().showHandTrackingIndicator;
+        }
+
+        public static void ToggleHandTrackingIndicatorVisibility()
+        {
+            var settings = Get();
+            settings.showHandTrackingIndicator = !settings.showHandTrackingIndicator;
+            Save();
+        }
+
+        public static string GetHandTrackingIndicatorVisibilityLabel()
+        {
+            return IsHandTrackingIndicatorVisible() ? "Shown" : "Hidden";
         }
 
         private static void Clamp(HudSettingsData settings)

@@ -8,6 +8,8 @@ namespace VisualEducationSystem.UI
 {
     public sealed class MainMenuController : MonoBehaviour
     {
+        private const string MainMenuCoverResourcePath = "Covers/enhanced-memory-palace-cover";
+
         private enum MenuMode
         {
             Root,
@@ -24,6 +26,12 @@ namespace VisualEducationSystem.UI
         private Vector2 loadScrollPosition;
         private Vector2 settingsScrollPosition;
         private string menuStatus = string.Empty;
+        private Texture2D? mainMenuCover;
+
+        private void Awake()
+        {
+            mainMenuCover = Resources.Load<Texture2D>(MainMenuCoverResourcePath);
+        }
 
         private void Update()
         {
@@ -41,6 +49,8 @@ namespace VisualEducationSystem.UI
 
         private void OnGUI()
         {
+            DrawBackground();
+
             var windowWidth = Mathf.Min(560f, Screen.width - 48f);
             var windowHeight = Mathf.Min(520f, Screen.height - 48f);
             var windowRect = new Rect(
@@ -72,6 +82,20 @@ namespace VisualEducationSystem.UI
             }
 
             GUILayout.EndArea();
+        }
+
+        private void DrawBackground()
+        {
+            var screenRect = new Rect(0f, 0f, Screen.width, Screen.height);
+            if (mainMenuCover != null)
+            {
+                GUI.DrawTexture(screenRect, mainMenuCover, ScaleMode.ScaleAndCrop);
+            }
+
+            var overlayColor = GUI.color;
+            GUI.color = new Color(0.06f, 0.08f, 0.12f, mainMenuCover != null ? 0.38f : 0.8f);
+            GUI.DrawTexture(screenRect, Texture2D.whiteTexture, ScaleMode.StretchToFill);
+            GUI.color = overlayColor;
         }
 
         private void DrawRootMenu()
@@ -243,6 +267,28 @@ namespace VisualEducationSystem.UI
             }
 
             GUILayout.Space(12f);
+            GUILayout.Label("Hand Tracking HUD");
+
+            if (GUILayout.Button($"Hand Tracking Panel: {HudSettingsStore.GetHandTrackingPanelVisibilityLabel()}", GUILayout.Height(38f)))
+            {
+                HudSettingsStore.ToggleHandTrackingPanelVisibility();
+            }
+
+            GUILayout.Space(8f);
+
+            if (GUILayout.Button($"Camera Preview: {HudSettingsStore.GetHandTrackingCameraPreviewVisibilityLabel()}", GUILayout.Height(38f)))
+            {
+                HudSettingsStore.ToggleHandTrackingCameraPreviewVisibility();
+            }
+
+            GUILayout.Space(8f);
+
+            if (GUILayout.Button($"Top-Right Tracking Indicator: {HudSettingsStore.GetHandTrackingIndicatorVisibilityLabel()}", GUILayout.Height(38f)))
+            {
+                HudSettingsStore.ToggleHandTrackingIndicatorVisibility();
+            }
+
+            GUILayout.Space(12f);
             GUILayout.Label("In the palace:");
             GUILayout.Label("- HUD panels hide while you move and reappear after you stop.");
             GUILayout.Label("- Hold Tab to temporarily reveal slid-away HUD panels.");
@@ -258,6 +304,9 @@ namespace VisualEducationSystem.UI
             GUILayout.Label($"Room box: {(settings.autoHideRoom ? "Auto-hide" : "Pinned")}");
             GUILayout.Label($"Help box: {(settings.autoHideHelp ? "Auto-hide" : "Pinned")}");
             GUILayout.Label($"Mini map: {(settings.autoHideMiniMap ? "Auto-hide" : "Pinned")}");
+            GUILayout.Label($"Hand tracking panel: {(settings.showHandTrackingPanel ? "Shown" : "Hidden")}");
+            GUILayout.Label($"Camera preview: {(settings.showHandTrackingCameraPreview ? "Shown" : "Hidden")}");
+            GUILayout.Label($"Top-right tracking indicator: {(settings.showHandTrackingIndicator ? "Shown" : "Hidden")}");
             GUILayout.Space(12f);
 
             GUILayout.EndScrollView();

@@ -65,6 +65,10 @@ namespace VisualEducationSystem.Save
             public string title = string.Empty;
             public string bodyText = string.Empty;
             public string assetPath = string.Empty;
+            public float tintColorR = 1f;
+            public float tintColorG = 1f;
+            public float tintColorB = 1f;
+            public float tintColorA = 1f;
             public float textScale = 1f;
             public int textStyle;
             public float localPositionX;
@@ -175,6 +179,10 @@ namespace VisualEducationSystem.Save
                     title = clue.Title,
                     bodyText = clue.BodyText,
                     assetPath = clue.AssetPath,
+                    tintColorR = clue.TintColor.r,
+                    tintColorG = clue.TintColor.g,
+                    tintColorB = clue.TintColor.b,
+                    tintColorA = clue.TintColor.a,
                     textScale = clue.TextScale,
                     textStyle = (int)clue.TextStyle,
                     localPositionX = clue.LocalPosition.x,
@@ -229,6 +237,7 @@ namespace VisualEducationSystem.Save
                     clue.title,
                     clue.bodyText,
                     clue.assetPath,
+                    new Color(clue.tintColorR, clue.tintColorG, clue.tintColorB, clue.tintColorA),
                     clue.textScale,
                     (PalaceClueTextStyle)clue.textStyle,
                     new Vector3(clue.localPositionX, clue.localPositionY, clue.localPositionZ),

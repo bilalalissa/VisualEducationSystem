@@ -8,7 +8,8 @@ namespace VisualEducationSystem.Rooms
         Note = 0,
         Image = 1,
         File = 2,
-        Video = 3
+        Video = 3,
+        Ink = 4
     }
 
     public enum PalaceClueTextStyle
@@ -60,6 +61,7 @@ namespace VisualEducationSystem.Rooms
                 string title,
                 string bodyText,
                 string assetPath,
+                Color tintColor,
                 float textScale,
                 PalaceClueTextStyle textStyle,
                 Vector3 localPosition,
@@ -72,6 +74,7 @@ namespace VisualEducationSystem.Rooms
                 Title = title;
                 BodyText = bodyText;
                 AssetPath = assetPath;
+                TintColor = tintColor;
                 TextScale = textScale;
                 TextStyle = textStyle;
                 LocalPosition = localPosition;
@@ -85,6 +88,7 @@ namespace VisualEducationSystem.Rooms
             public string Title { get; }
             public string BodyText { get; }
             public string AssetPath { get; }
+            public Color TintColor { get; }
             public float TextScale { get; }
             public PalaceClueTextStyle TextStyle { get; }
             public Vector3 LocalPosition { get; }
@@ -100,6 +104,7 @@ namespace VisualEducationSystem.Rooms
                 string title,
                 string bodyText,
                 string assetPath,
+                Color tintColor,
                 float textScale,
                 PalaceClueTextStyle textStyle,
                 Vector3 localPosition,
@@ -111,6 +116,7 @@ namespace VisualEducationSystem.Rooms
                 Title = title;
                 BodyText = bodyText;
                 AssetPath = assetPath;
+                TintColor = tintColor;
                 TextScale = textScale;
                 TextStyle = textStyle;
                 LocalPosition = localPosition;
@@ -123,6 +129,7 @@ namespace VisualEducationSystem.Rooms
             public string Title { get; }
             public string BodyText { get; }
             public string AssetPath { get; }
+            public Color TintColor { get; }
             public float TextScale { get; }
             public PalaceClueTextStyle TextStyle { get; }
             public Vector3 LocalPosition { get; }
@@ -165,6 +172,7 @@ namespace VisualEducationSystem.Rooms
             string title,
             string bodyText,
             string assetPath,
+            Color tintColor,
             float textScale,
             PalaceClueTextStyle textStyle,
             Vector3 localPosition,
@@ -177,6 +185,7 @@ namespace VisualEducationSystem.Rooms
                 string.IsNullOrWhiteSpace(title) ? "Untitled Clue" : title.Trim(),
                 string.IsNullOrWhiteSpace(bodyText) ? string.Empty : bodyText.Trim(),
                 string.IsNullOrWhiteSpace(assetPath) ? string.Empty : assetPath.Trim(),
+                tintColor,
                 Mathf.Clamp(textScale, 0.75f, 1.35f),
                 textStyle,
                 localPosition,
@@ -205,6 +214,7 @@ namespace VisualEducationSystem.Rooms
                     pair.Value.Title,
                     pair.Value.BodyText,
                     pair.Value.AssetPath,
+                    pair.Value.TintColor,
                     pair.Value.TextScale,
                     pair.Value.TextStyle,
                     pair.Value.LocalPosition,
@@ -229,6 +239,7 @@ namespace VisualEducationSystem.Rooms
                     pair.Value.Title,
                     pair.Value.BodyText,
                     pair.Value.AssetPath,
+                    pair.Value.TintColor,
                     pair.Value.TextScale,
                     pair.Value.TextStyle,
                     pair.Value.LocalPosition,

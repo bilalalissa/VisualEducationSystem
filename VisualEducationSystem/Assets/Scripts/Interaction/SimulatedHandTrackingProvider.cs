@@ -6,6 +6,10 @@ namespace VisualEducationSystem.Interaction
 {
     public interface IHandTrackingProvider
     {
+        string ProviderDisplayName { get; }
+        string StatusSummary { get; }
+        bool IsAvailable { get; }
+        Texture? DebugTexture { get; }
         bool TryGetFrame(out HandTrackingFrame frame);
     }
 
@@ -17,6 +21,10 @@ namespace VisualEducationSystem.Interaction
         [SerializeField] private Vector2 rightHandViewportPosition = new(0.72f, 0.54f);
 
         private const int SimulatedUserId = 1;
+        public string ProviderDisplayName => "Simulated";
+        public string StatusSummary => userVisible ? "Simulated user visible." : "Simulated user hidden.";
+        public bool IsAvailable => true;
+        public Texture? DebugTexture => null;
 
         private void Update()
         {

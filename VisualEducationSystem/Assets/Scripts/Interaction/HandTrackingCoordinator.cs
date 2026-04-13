@@ -1,5 +1,6 @@
 #nullable enable
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace VisualEducationSystem.Interaction
 {
@@ -7,7 +8,13 @@ namespace VisualEducationSystem.Interaction
     {
         private IHandTrackingProvider? provider;
         private SimulatedHandTrackingProvider? fallbackProvider;
+        private WebcamHandTrackingProvider? webcamProvider;
         private string lastStatusMessage = "Waiting for user selection.";
+        private string activeProviderName = "None";
+        private string providerStatusSummary = "No provider bound.";
+        private string recognitionStatusSummary = "Recognition backend unavailable.";
+        private HandGestureType previousLeftGesture = HandGestureType.None;
+        private HandGestureType previousRightGesture = HandGestureType.None;
 
         public static HandTrackingCoordinator? Instance { get; private set; }
 
@@ -18,6 +25,10 @@ namespace VisualEducationSystem.Interaction
         public HandSample LeftHand { get; private set; }
         public HandSample RightHand { get; private set; }
         public string LastStatusMessage => lastStatusMessage;
+        public string ActiveProviderName => activeProviderName;
+        public string ProviderStatusSummary => providerStatusSummary;
+        public string RecognitionStatusSummary => recognitionStatusSummary;
+        public Texture? ProviderDebugTexture => provider?.DebugTexture;
 
         public static void EnsureOn(GameObject host)
         {
@@ -26,6 +37,7 @@ namespace VisualEducationSystem.Interaction
                 return;
             }
 
+            host.AddComponent<WebcamHandTrackingProvider>();
             host.AddComponent<SimulatedHandTrackingProvider>();
             host.AddComponent<HandTrackingCoordinator>();
             host.AddComponent<HandTrackingDebugHUD>();
@@ -52,16 +64,32 @@ namespace VisualEducationSystem.Interaction
                 RefreshProviderReference();
             }
 
+            if (Keyboard.current != null && Keyboard.current.f10Key.wasPressedThisFrame)
+            {
+                ToggleProviderPreference();
+            }
+
             if (provider == null || !provider.TryGetFrame(out var frame))
             {
+                activeProviderName = provider?.ProviderDisplayName ?? "None";
+                providerStatusSummary = provider?.StatusSummary ?? "No provider available.";
+                recognitionStatusSummary = webcamProvider != null
+                    ? (webcamProvider.HasOperationalRecognition ? "Recognition backend operational." : "Recognition backend not installed.")
+                    : "Recognition backend unavailable.";
                 lastStatusMessage = "No hand-tracking provider frame available.";
                 return;
             }
 
+            activeProviderName = provider.ProviderDisplayName;
+            providerStatusSummary = provider.StatusSummary;
+            recognitionStatusSummary = webcamProvider != null
+                ? (webcamProvider.HasOperationalRecognition ? "Recognition backend operational." : "Recognition backend not installed.")
+                : "Recognition backend unavailable.";
+
             var previousLifecycle = Lifecycle;
             var previousStatus = lastStatusMessage;
-            var previousLeftGesture = LeftHand.Gesture;
-            var previousRightGesture = RightHand.Gesture;
+            var priorLeftGesture = LeftHand.Gesture;
+            var priorRightGesture = RightHand.Gesture;
 
             StepStateMachine(frame);
 
@@ -70,12 +98,12 @@ namespace VisualEducationSystem.Interaction
                 RuntimeEventLogger.LogEvent("hand_tracking.lifecycle", $"{previousLifecycle} -> {Lifecycle}");
             }
 
-            if (LeftHand.Gesture != previousLeftGesture)
+            if (LeftHand.Gesture != priorLeftGesture)
             {
                 RuntimeEventLogger.LogEvent("hand_tracking.left_hand", $"Gesture={LeftHand.Gesture} Confidence={LeftHand.Confidence:F2}");
             }
 
-            if (RightHand.Gesture != previousRightGesture)
+            if (RightHand.Gesture != priorRightGesture)
             {
                 RuntimeEventLogger.LogEvent("hand_tracking.right_hand", $"Gesture={RightHand.Gesture} Confidence={RightHand.Confidence:F2}");
             }
@@ -89,13 +117,16 @@ namespace VisualEducationSystem.Interaction
         private void StepStateMachine(HandTrackingFrame frame)
         {
             var candidateMatchesLock = frame.HasCandidateUser && frame.CandidateUserId == LockedUserId;
+            var leftOpenPalmTriggered = frame.LeftHand.Gesture == HandGestureType.OpenPalm && previousLeftGesture != HandGestureType.OpenPalm;
+            var leftFistTriggered = frame.LeftHand.Gesture == HandGestureType.Fist && previousLeftGesture != HandGestureType.Fist;
+            var rightThumbsUpTriggered = frame.RightHand.Gesture == HandGestureType.ThumbsUp && previousRightGesture != HandGestureType.ThumbsUp;
 
             switch (Lifecycle)
             {
                 case HandTrackingLifecycle.WaitingForUser:
                     LeftHand = frame.LeftHand;
                     RightHand = frame.RightHand;
-                    if (frame.HasCandidateUser && frame.RightHand.Gesture == HandGestureType.ThumbsUp)
+                    if (frame.HasCandidateUser && rightThumbsUpTriggered)
                     {
                         LockedUserId = frame.CandidateUserId;
                         LockedUserConfidence = frame.CandidateConfidence;
@@ -124,7 +155,7 @@ namespace VisualEducationSystem.Interaction
                     LockedUserConfidence = frame.CandidateConfidence;
                     LockedUserViewportBounds = frame.CandidateViewportBounds;
 
-                    if (frame.LeftHand.Gesture == HandGestureType.OpenPalm)
+                    if (leftOpenPalmTriggered)
                     {
                         Lifecycle = HandTrackingLifecycle.Active;
                         lastStatusMessage = "Tracking active.";
@@ -148,7 +179,7 @@ namespace VisualEducationSystem.Interaction
                     LockedUserConfidence = frame.CandidateConfidence;
                     LockedUserViewportBounds = frame.CandidateViewportBounds;
 
-                    if (frame.LeftHand.Gesture == HandGestureType.Fist)
+                    if (leftFistTriggered)
                     {
                         Lifecycle = HandTrackingLifecycle.SelectedPaused;
                         lastStatusMessage = "Tracking paused by left-hand fist.";
@@ -166,14 +197,14 @@ namespace VisualEducationSystem.Interaction
                     {
                         LockedUserConfidence = frame.CandidateConfidence;
                         LockedUserViewportBounds = frame.CandidateViewportBounds;
-                        Lifecycle = frame.LeftHand.Gesture == HandGestureType.OpenPalm
+                        Lifecycle = leftOpenPalmTriggered
                             ? HandTrackingLifecycle.Active
                             : HandTrackingLifecycle.SelectedPaused;
                         lastStatusMessage = Lifecycle == HandTrackingLifecycle.Active
                             ? "Locked user reacquired. Tracking active."
                             : "Locked user reacquired. Tracking paused.";
                     }
-                    else if (frame.HasCandidateUser && frame.RightHand.Gesture == HandGestureType.ThumbsUp)
+                    else if (frame.HasCandidateUser && rightThumbsUpTriggered)
                     {
                         LockedUserId = frame.CandidateUserId;
                         LockedUserConfidence = frame.CandidateConfidence;
@@ -187,12 +218,42 @@ namespace VisualEducationSystem.Interaction
                     }
                     break;
             }
+
+            previousLeftGesture = frame.LeftHand.Gesture;
+            previousRightGesture = frame.RightHand.Gesture;
         }
 
         private void RefreshProviderReference()
         {
+            webcamProvider = GetComponent<WebcamHandTrackingProvider>();
             fallbackProvider = GetComponent<SimulatedHandTrackingProvider>();
-            provider = fallbackProvider;
+            provider = webcamProvider != null && webcamProvider.IsAvailable
+                ? webcamProvider
+                : fallbackProvider;
+            activeProviderName = provider?.ProviderDisplayName ?? "None";
+            providerStatusSummary = provider?.StatusSummary ?? "No provider available.";
+            recognitionStatusSummary = webcamProvider != null
+                ? (webcamProvider.HasOperationalRecognition ? "Recognition backend operational." : "Recognition backend not installed.")
+                : "Recognition backend unavailable.";
+        }
+
+        private void ToggleProviderPreference()
+        {
+            webcamProvider = GetComponent<WebcamHandTrackingProvider>();
+            fallbackProvider = GetComponent<SimulatedHandTrackingProvider>();
+            if (provider == webcamProvider || webcamProvider == null || !webcamProvider.IsAvailable)
+            {
+                provider = fallbackProvider;
+            }
+            else
+            {
+                provider = webcamProvider;
+            }
+
+            activeProviderName = provider?.ProviderDisplayName ?? "None";
+            providerStatusSummary = provider?.StatusSummary ?? "No provider available.";
+            lastStatusMessage = $"Switched hand-tracking provider to {activeProviderName}.";
+            RuntimeEventLogger.LogEvent("hand_tracking.provider", lastStatusMessage);
         }
     }
 }

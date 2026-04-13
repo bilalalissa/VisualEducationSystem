@@ -330,15 +330,20 @@ namespace VisualEducationSystem.Rooms
 
         public string SaveNoteClue(RoomInstance? room, string clueId, string title, string bodyText, float textScale = 1f, PalaceClueTextStyle textStyle = PalaceClueTextStyle.Normal)
         {
-            return SaveClue(room, clueId, PalaceClueType.Note, title, bodyText, string.Empty, textScale, textStyle);
+            return SaveClue(room, clueId, PalaceClueType.Note, title, bodyText, string.Empty, Color.white, textScale, textStyle);
         }
 
         public string SaveImageClue(RoomInstance? room, string clueId, string title, string assetPath)
         {
-            return SaveClue(room, clueId, PalaceClueType.Image, title, string.Empty, assetPath, 1f, PalaceClueTextStyle.Normal);
+            return SaveClue(room, clueId, PalaceClueType.Image, title, string.Empty, assetPath, Color.white, 1f, PalaceClueTextStyle.Normal);
         }
 
-        private string SaveClue(RoomInstance? room, string clueId, PalaceClueType clueType, string title, string bodyText, string assetPath, float textScale, PalaceClueTextStyle textStyle)
+        public string SaveInkClue(RoomInstance? room, string clueId, string title, string serializedInk, Color inkColor, float inkThickness)
+        {
+            return SaveClue(room, clueId, PalaceClueType.Ink, title, serializedInk, string.Empty, inkColor, inkThickness, PalaceClueTextStyle.Normal);
+        }
+
+        private string SaveClue(RoomInstance? room, string clueId, PalaceClueType clueType, string title, string bodyText, string assetPath, Color tintColor, float textScale, PalaceClueTextStyle textStyle)
         {
             if (room == null)
             {
@@ -357,8 +362,12 @@ namespace VisualEducationSystem.Rooms
                 localPosition = NormalizeClueLocalPosition(room, resolvedClueId, existingClue.LocalPosition);
                 localEulerAngles = existingClue.LocalEulerAngles;
                 localScale = existingClue.LocalScale;
-                resolvedTextScale = clueType == PalaceClueType.Note ? textScale : existingClue.TextScale;
+                resolvedTextScale = clueType is PalaceClueType.Note or PalaceClueType.Ink ? textScale : existingClue.TextScale;
                 resolvedTextStyle = clueType == PalaceClueType.Note ? textStyle : existingClue.TextStyle;
+                if (clueType != PalaceClueType.Ink)
+                {
+                    tintColor = existingClue.TintColor;
+                }
             }
 
             PalaceSessionState.SetClue(
@@ -368,6 +377,7 @@ namespace VisualEducationSystem.Rooms
                 title,
                 bodyText,
                 assetPath,
+                tintColor,
                 resolvedTextScale,
                 resolvedTextStyle,
                 localPosition,
@@ -404,6 +414,7 @@ namespace VisualEducationSystem.Rooms
                 clue.Title,
                 clue.BodyText,
                 clue.AssetPath,
+                clue.TintColor,
                 clue.TextScale,
                 clue.TextStyle,
                 nextLocalPosition,
@@ -428,6 +439,7 @@ namespace VisualEducationSystem.Rooms
                 clue.Title,
                 clue.BodyText,
                 clue.AssetPath,
+                clue.TintColor,
                 clue.TextScale,
                 clue.TextStyle,
                 clue.LocalPosition,
@@ -453,6 +465,7 @@ namespace VisualEducationSystem.Rooms
                 clue.Title,
                 clue.BodyText,
                 clue.AssetPath,
+                clue.TintColor,
                 clue.TextScale,
                 clue.TextStyle,
                 clue.LocalPosition,
@@ -513,6 +526,7 @@ namespace VisualEducationSystem.Rooms
                 clue.Title,
                 clue.BodyText,
                 clue.AssetPath,
+                clue.TintColor,
                 clue.TextScale,
                 clue.TextStyle,
                 nextLocalPosition,
@@ -538,10 +552,145 @@ namespace VisualEducationSystem.Rooms
                 clue.Title,
                 clue.BodyText,
                 clue.AssetPath,
+                clue.TintColor,
                 clue.TextScale,
                 clue.TextStyle,
                 nextLocalPosition,
                 Vector3.zero,
+                clue.LocalScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
+        public bool TryAppendInkPoint(RoomInstance? room, string clueId, Vector3 worldPoint, bool beginStroke)
+        {
+            if (room == null || string.IsNullOrWhiteSpace(clueId) || !PalaceSessionState.TryGetClue(clueId, out var clue) || clue.ClueType != PalaceClueType.Ink)
+            {
+                return false;
+            }
+
+            var anchoredPosition = NormalizeClueLocalPosition(room, clueId, clue.LocalPosition);
+            var anchoredWall = GetNearestClueWall(room, anchoredPosition);
+            var clueRotation = GetClueWallRotation(anchoredWall);
+            var clueCenter = room.LayoutCenter + anchoredPosition + new Vector3(0f, CluePivotHeightOffset, 0f);
+            var rootLocalPoint = Quaternion.Inverse(clueRotation) * (worldPoint - clueCenter);
+            var halfWidth = 0.76f * Mathf.Max(0.01f, clue.LocalScale.x);
+            var halfHeight = 0.5f * Mathf.Max(0.01f, clue.LocalScale.y);
+            var normalizedPoint = new Vector2(
+                Mathf.Clamp(rootLocalPoint.x / halfWidth, -1f, 1f),
+                Mathf.Clamp((rootLocalPoint.y + 0.03f) / halfHeight, -1f, 1f));
+
+            var strokes = InkStrokeSerialization.Deserialize(clue.BodyText);
+            if (beginStroke || strokes.Count == 0)
+            {
+                strokes.Add(new System.Collections.Generic.List<Vector2>());
+            }
+
+            var activeStroke = strokes[strokes.Count - 1];
+            if (activeStroke.Count > 0 && Vector2.Distance(activeStroke[activeStroke.Count - 1], normalizedPoint) < 0.01f)
+            {
+                return false;
+            }
+
+            activeStroke.Add(normalizedPoint);
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                InkStrokeSerialization.Serialize(strokes),
+                clue.AssetPath,
+                clue.TintColor,
+                clue.TextScale,
+                clue.TextStyle,
+                clue.LocalPosition,
+                clue.LocalEulerAngles,
+                clue.LocalScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
+        public bool TryEraseInkAtPoint(RoomInstance? room, string clueId, Vector3 worldPoint)
+        {
+            if (room == null || string.IsNullOrWhiteSpace(clueId) || !PalaceSessionState.TryGetClue(clueId, out var clue) || clue.ClueType != PalaceClueType.Ink)
+            {
+                return false;
+            }
+
+            var anchoredPosition = NormalizeClueLocalPosition(room, clueId, clue.LocalPosition);
+            var anchoredWall = GetNearestClueWall(room, anchoredPosition);
+            var clueRotation = GetClueWallRotation(anchoredWall);
+            var clueCenter = room.LayoutCenter + anchoredPosition + new Vector3(0f, CluePivotHeightOffset, 0f);
+            var rootLocalPoint = Quaternion.Inverse(clueRotation) * (worldPoint - clueCenter);
+            var halfWidth = 0.76f * Mathf.Max(0.01f, clue.LocalScale.x);
+            var halfHeight = 0.5f * Mathf.Max(0.01f, clue.LocalScale.y);
+            var normalizedPoint = new Vector2(
+                Mathf.Clamp(rootLocalPoint.x / halfWidth, -1f, 1f),
+                Mathf.Clamp((rootLocalPoint.y + 0.03f) / halfHeight, -1f, 1f));
+
+            var strokes = InkStrokeSerialization.Deserialize(clue.BodyText);
+            var changed = false;
+            const float eraseRadius = 0.12f;
+            for (var strokeIndex = strokes.Count - 1; strokeIndex >= 0; strokeIndex--)
+            {
+                var stroke = strokes[strokeIndex];
+                for (var pointIndex = stroke.Count - 1; pointIndex >= 0; pointIndex--)
+                {
+                    if (Vector2.Distance(stroke[pointIndex], normalizedPoint) <= eraseRadius)
+                    {
+                        stroke.RemoveAt(pointIndex);
+                        changed = true;
+                    }
+                }
+
+                if (stroke.Count < 2)
+                {
+                    strokes.RemoveAt(strokeIndex);
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+            {
+                return false;
+            }
+
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                InkStrokeSerialization.Serialize(strokes),
+                clue.AssetPath,
+                clue.TintColor,
+                clue.TextScale,
+                clue.TextStyle,
+                clue.LocalPosition,
+                clue.LocalEulerAngles,
+                clue.LocalScale);
+            RefreshClueVisual(clueId);
+            return true;
+        }
+
+        public bool ClearInkClue(string clueId)
+        {
+            if (string.IsNullOrWhiteSpace(clueId) || !PalaceSessionState.TryGetClue(clueId, out var clue) || clue.ClueType != PalaceClueType.Ink)
+            {
+                return false;
+            }
+
+            PalaceSessionState.SetClue(
+                clueId,
+                clue.RoomId,
+                clue.ClueType,
+                clue.Title,
+                string.Empty,
+                clue.AssetPath,
+                clue.TintColor,
+                clue.TextScale,
+                clue.TextStyle,
+                clue.LocalPosition,
+                clue.LocalEulerAngles,
                 clue.LocalScale);
             RefreshClueVisual(clueId);
             return true;
@@ -1136,6 +1285,9 @@ namespace VisualEducationSystem.Rooms
                 case PalaceClueType.Image:
                     BuildImageClueVisual(visualPivot, clue, baseColor);
                     break;
+                case PalaceClueType.Ink:
+                    BuildInkClueVisual(visualPivot, clue);
+                    break;
                 default:
                     BuildGenericClueVisual(visualPivot, clue, baseColor);
                     break;
@@ -1244,6 +1396,84 @@ namespace VisualEducationSystem.Rooms
             }
 
             Destroy(imagePlane.GetComponent<Collider>());
+        }
+
+        private void BuildInkClueVisual(Transform root, PalaceSessionState.ClueSnapshot clue)
+        {
+            var frameColor = new Color(0.3f, 0.32f, 0.34f, 1f);
+            var faceColor = new Color(0.97f, 0.97f, 0.94f, 1f);
+            var inkAssembly = new GameObject("InkAssembly").transform;
+            inkAssembly.SetParent(root, false);
+            inkAssembly.localPosition = Vector3.zero;
+            inkAssembly.localRotation = Quaternion.identity;
+            inkAssembly.localScale = Vector3.one;
+
+            var inkBack = CreatePrimitive(inkAssembly, PrimitiveType.Cube, "InkBacker", new Vector3(0f, 0f, 0.09f), new Vector3(1.84f, 1.42f, 0.03f), frameColor);
+            var inkCore = CreatePrimitive(inkAssembly, PrimitiveType.Cube, "InkBoardCore", new Vector3(0f, 0f, 0.02f), new Vector3(1.74f, 1.32f, 0.06f), frameColor);
+            var inkFace = CreatePrimitive(inkAssembly, PrimitiveType.Cube, "InkFace", new Vector3(0f, 0f, -0.035f), new Vector3(1.56f, 1.12f, 0.016f), faceColor);
+            var inkPin = CreatePrimitive(inkAssembly, PrimitiveType.Sphere, "InkPin", new Vector3(0f, 0.62f, -0.07f), new Vector3(0.1f, 0.1f, 0.1f), new Color(0.82f, 0.13f, 0.13f));
+            inkBack.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(frameColor);
+            inkCore.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(frameColor);
+            inkFace.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(faceColor);
+            inkPin.GetComponent<Renderer>().sharedMaterial = CreateUnlitMaterial(new Color(0.82f, 0.13f, 0.13f));
+
+            BuildClueText(inkAssembly, "InkTitle", WrapClueText(clue.Title, 14, 2), new Vector3(0f, 0.45f, -0.085f), 22, 0.034f, new Color(0.06f, 0.07f, 0.08f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            if (string.IsNullOrWhiteSpace(clue.BodyText))
+            {
+                BuildClueText(inkAssembly, "InkHint", "Pinch to draw", new Vector3(0f, 0.02f, -0.086f), 20, 0.03f, new Color(0.4f, 0.42f, 0.45f), TextAnchor.MiddleCenter, FontStyle.Italic);
+            }
+            BuildInkStrokeLines(inkAssembly, clue);
+        }
+
+        private static void BuildInkStrokeLines(Transform root, PalaceSessionState.ClueSnapshot clue)
+        {
+            var strokes = InkStrokeSerialization.Deserialize(clue.BodyText);
+            if (strokes.Count == 0)
+            {
+                return;
+            }
+
+            var strokeColor = clue.TintColor.a <= 0f ? Color.black : clue.TintColor;
+            var strokeWidth = Mathf.Clamp(0.032f * clue.TextScale, 0.022f, 0.065f);
+            const float halfWidth = 0.76f;
+            const float halfHeight = 0.5f;
+
+            for (var strokeIndex = 0; strokeIndex < strokes.Count; strokeIndex++)
+            {
+                var stroke = strokes[strokeIndex];
+                if (stroke.Count < 2)
+                {
+                    continue;
+                }
+
+                var strokeObject = new GameObject($"InkStroke_{strokeIndex}");
+                strokeObject.transform.SetParent(root, false);
+                var line = strokeObject.AddComponent<LineRenderer>();
+                line.useWorldSpace = false;
+                line.loop = false;
+                line.positionCount = stroke.Count;
+                line.startWidth = strokeWidth;
+                line.endWidth = strokeWidth;
+                line.numCapVertices = 6;
+                line.numCornerVertices = 6;
+                line.alignment = LineAlignment.TransformZ;
+                line.textureMode = LineTextureMode.Stretch;
+                line.shadowCastingMode = ShadowCastingMode.Off;
+                line.receiveShadows = false;
+                line.generateLightingData = false;
+                line.sortingOrder = 10;
+                var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+                var material = new Material(shader);
+                material.color = strokeColor;
+                material.renderQueue = (int)RenderQueue.Transparent + 20;
+                line.sharedMaterial = material;
+
+                for (var pointIndex = 0; pointIndex < stroke.Count; pointIndex++)
+                {
+                    var point = stroke[pointIndex];
+                    line.SetPosition(pointIndex, new Vector3(point.x * halfWidth, point.y * halfHeight - 0.03f, -0.095f));
+                }
+            }
         }
 
         private static void BuildClueText(Transform parent, string name, string content, Vector3 localPosition, int fontSize, float characterSize, Color color, TextAnchor anchor, FontStyle fontStyle)

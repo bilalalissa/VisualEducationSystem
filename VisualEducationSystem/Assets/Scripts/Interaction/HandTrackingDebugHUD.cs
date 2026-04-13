@@ -1,5 +1,6 @@
 #nullable enable
 using UnityEngine;
+using VisualEducationSystem.UI;
 
 namespace VisualEducationSystem.Interaction
 {
@@ -8,6 +9,7 @@ namespace VisualEducationSystem.Interaction
         private GUIStyle? panelStyle;
         private GUIStyle? labelStyle;
         private GUIStyle? titleStyle;
+        private Rect lastMainPanelRect;
 
         private void OnGUI()
         {
@@ -19,50 +21,85 @@ namespace VisualEducationSystem.Interaction
 
             EnsureStyles();
 
-            var rect = new Rect(Screen.width - 376f, 16f, 360f, 286f);
+            var showFullPanel = HudSettingsStore.IsHandTrackingPanelVisible();
+            if (HudSettingsStore.IsHandTrackingIndicatorVisible() && !showFullPanel)
+            {
+                DrawCompactIndicator(coordinator);
+            }
+
+            if (!showFullPanel)
+            {
+                DrawPreviewPanel(coordinator);
+                return;
+            }
+
+            var rect = new Rect(Screen.width - 376f, 16f, 360f, 282f);
+            lastMainPanelRect = rect;
             GUI.Box(rect, string.Empty, panelStyle);
 
             var lineY = rect.y + 12f;
-            const float lineHeight = 20f;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 22f), "Hand Tracking Simulation", titleStyle);
-            lineY += 24f;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Hand Tracking: {coordinator.Lifecycle}", labelStyle);
+            const float lineHeight = 24f;
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 24f), "Hand Tracking", titleStyle);
+            lineY += 28f;
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Mode: {coordinator.ActiveProviderName}", labelStyle);
             lineY += lineHeight;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Locked User: {(coordinator.LockedUserId >= 0 ? coordinator.LockedUserId.ToString() : "None")}", labelStyle);
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"State: {coordinator.Lifecycle}", labelStyle);
             lineY += lineHeight;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Confidence: {coordinator.LockedUserConfidence:F2}", labelStyle);
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"User: {(coordinator.LockedUserId >= 0 ? coordinator.LockedUserId.ToString() : "None")}  |  Confidence: {coordinator.LockedUserConfidence:F2}", labelStyle);
             lineY += lineHeight;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Left Hand: {DescribeHand(coordinator.LeftHand)}", labelStyle);
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Left: {DescribeHand(coordinator.LeftHand)}", labelStyle);
             lineY += lineHeight;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Right Hand: {DescribeHand(coordinator.RightHand)}", labelStyle);
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, lineHeight), $"Right: {DescribeHand(coordinator.RightHand)}", labelStyle);
             lineY += lineHeight;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 34f), $"Status: {coordinator.LastStatusMessage}", labelStyle);
-            lineY += 42f;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 18f), "User select:", labelStyle);
-            lineY += 16f;
-            GUI.Label(new Rect(rect.x + 22f, lineY, rect.width - 34f, 18f), "F7 = right-hand thumbs-up locks current user", labelStyle);
-            lineY += 18f;
-            GUI.Label(new Rect(rect.x + 22f, lineY, rect.width - 34f, 18f), "F6 = show / hide simulated user", labelStyle);
-            lineY += 24f;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 18f), "Left hand controls:", labelStyle);
-            lineY += 16f;
-            GUI.Label(new Rect(rect.x + 22f, lineY, rect.width - 34f, 18f), "F8 = open palm (start / resume)", labelStyle);
-            lineY += 18f;
-            GUI.Label(new Rect(rect.x + 22f, lineY, rect.width - 34f, 18f), "F9 = fist (pause)", labelStyle);
-            lineY += 24f;
-            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 18f), "Right hand actions:", labelStyle);
-            lineY += 16f;
-            GUI.Label(new Rect(rect.x + 22f, lineY, rect.width - 34f, 18f), "P = pinch", labelStyle);
-            lineY += 18f;
-            GUI.Label(new Rect(rect.x + 22f, lineY, rect.width - 34f, 18f), "O = point", labelStyle);
-            lineY += 18f;
-            GUI.Label(new Rect(rect.x + 22f, lineY, rect.width - 34f, 18f), "I/J/K/L = move simulated right hand", labelStyle);
-            lineY += 22f;
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 42f), $"Status: {coordinator.LastStatusMessage}", labelStyle);
+            lineY += 46f;
+            GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 36f), "Controls: F7 select, F8 start, F9 pause, F10 mode switch.", labelStyle);
+            lineY += 40f;
             var logPath = RuntimeEventLogger.CurrentLogFilePath;
             if (!string.IsNullOrWhiteSpace(logPath))
             {
-                GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 34f), $"Session log: {System.IO.Path.GetFileName(logPath)}", labelStyle);
+                GUI.Label(new Rect(rect.x + 12f, lineY, rect.width - 24f, 24f), $"Log: {System.IO.Path.GetFileName(logPath)}", labelStyle);
+                lineY += 26f;
             }
+
+            DrawPreviewPanel(coordinator);
+        }
+
+        private void DrawCompactIndicator(HandTrackingCoordinator coordinator)
+        {
+            var rect = new Rect(Screen.width - 272f, 16f, 256f, 64f);
+            GUI.Box(rect, string.Empty, panelStyle);
+
+            var modeLabel = coordinator.ActiveProviderName.Contains("Webcam") ? "Webcam" : "Simulated";
+            var userLabel = coordinator.LockedUserId >= 0 ? $"User {coordinator.LockedUserId}" : "No user";
+            GUI.Label(new Rect(rect.x + 10f, rect.y + 8f, rect.width - 20f, 18f), $"{modeLabel} | {coordinator.Lifecycle}", titleStyle);
+            GUI.Label(new Rect(rect.x + 10f, rect.y + 28f, rect.width - 20f, 16f), userLabel, labelStyle);
+            GUI.Label(new Rect(rect.x + 10f, rect.y + 44f, rect.width - 20f, 16f), $"L:{coordinator.LeftHand.Gesture}  R:{coordinator.RightHand.Gesture}", labelStyle);
+        }
+
+        private void DrawPreviewPanel(HandTrackingCoordinator coordinator)
+        {
+            var debugTexture = coordinator.ProviderDebugTexture;
+            if (debugTexture == null || !HudSettingsStore.IsHandTrackingCameraPreviewVisible())
+            {
+                return;
+            }
+
+            var anchorRect = lastMainPanelRect.width > 0f
+                ? lastMainPanelRect
+                : new Rect(Screen.width - 416f, 16f, 400f, 484f);
+
+            var preferredX = anchorRect.x - 264f;
+            var panelX = preferredX >= 16f ? preferredX : 16f;
+            var panelY = anchorRect.y;
+            var panelRect = new Rect(panelX, panelY, 252f, 212f);
+            GUI.Box(panelRect, string.Empty, panelStyle);
+
+            GUI.Label(new Rect(panelRect.x + 10f, panelRect.y + 8f, panelRect.width - 20f, 18f), "Live Provider Preview", titleStyle);
+            GUI.Label(new Rect(panelRect.x + 10f, panelRect.y + 28f, panelRect.width - 20f, 30f), "Webcam feed only. Hand tracking status and instructions remain in the main panel.", labelStyle);
+
+            var previewRect = new Rect(panelRect.x + 10f, panelRect.y + 62f, panelRect.width - 20f, 140f);
+            GUI.DrawTexture(previewRect, debugTexture, ScaleMode.ScaleToFit, false);
         }
 
         private void EnsureStyles()
@@ -81,13 +118,13 @@ namespace VisualEducationSystem.Interaction
             labelStyle = new GUIStyle(GUI.skin.label)
             {
                 wordWrap = true,
-                fontSize = 12
+                fontSize = 15
             };
             labelStyle.normal.textColor = Color.white;
 
             titleStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize = 18,
                 fontStyle = FontStyle.Bold
             };
             titleStyle.normal.textColor = Color.white;

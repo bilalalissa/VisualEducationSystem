@@ -82,7 +82,7 @@ namespace VisualEducationSystem.UI
             roomRect = GetPanelRect(roomRect, HudPanelId.Room, true, hideBlend);
             DrawHudPanel(roomRect, $"Current Room: {currentRoomName}", HudPanelId.Room, pointerEditMode);
 
-            const string helpText = "WASD + mouse. Esc for menu. E edits room.\nWalk through portals or use the editor for parent/sub-room travel.\nPress M to toggle the palace map.";
+            const string helpText = "WASD + mouse. Esc for menu. E edits room.\nWalk through portals or use the editor for parent/sub-room travel.\nInk clues: start from the room editor. Right-hand pinch draws. Right-hand fist erases in erase mode.\nPress M to toggle the palace map.";
             var helpRect = BuildContentBoxRect(
                 helpText,
                 BoxMargin,

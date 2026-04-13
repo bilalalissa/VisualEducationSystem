@@ -11,6 +11,12 @@ namespace VisualEducationSystem.UI
 {
     public sealed class RoomEditorController : MonoBehaviour
     {
+        public enum InkInteractionMode
+        {
+            Draw = 0,
+            Erase = 1
+        }
+
         private const string EntryHallRoomId = "EntryHall";
         private const float ClueMoveStep = 0.6f;
         private const float ClueHeightStep = 0.25f;
@@ -29,6 +35,7 @@ namespace VisualEducationSystem.UI
         private string draftClueTitle = string.Empty;
         private string draftClueBody = string.Empty;
         private string draftClueAssetPath = string.Empty;
+        private Color draftClueTintColor = Color.black;
         private float draftClueTextScale = 1f;
         private PalaceClueTextStyle draftClueTextStyle = PalaceClueTextStyle.Normal;
         private bool isPreviewOpen;
@@ -39,11 +46,20 @@ namespace VisualEducationSystem.UI
         private string editorStatus = string.Empty;
         private Vector2 scrollPosition;
         public static bool IsAnyEditorOpen { get; private set; }
+        public static bool IsInkDrawModeActive { get; private set; }
+        public static string ActiveInkClueId { get; private set; } = string.Empty;
+        public static InkInteractionMode ActiveInkMode { get; private set; } = InkInteractionMode.Draw;
 
         private void Update()
         {
             if (Keyboard.current == null)
             {
+                return;
+            }
+
+            if (!isOpen && IsInkDrawModeActive && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                EndInkDrawMode();
                 return;
             }
 
@@ -202,10 +218,25 @@ namespace VisualEducationSystem.UI
                     draftClueTitle = string.Empty;
                     draftClueBody = string.Empty;
                     draftClueAssetPath = string.Empty;
+                    draftClueTintColor = Color.black;
                     draftClueTextScale = 1f;
                     draftClueTextStyle = PalaceClueTextStyle.Normal;
                     editorStatus = "Creating image clue.";
                     RuntimeEventLogger.LogEvent("room_editor.clue", "Started creating a new image clue.");
+                }
+
+                if (GUILayout.Button("New Ink Clue", GUILayout.Height(30f)))
+                {
+                    selectedClueId = string.Empty;
+                    selectedClueType = PalaceClueType.Ink;
+                    draftClueTitle = "Ink Note";
+                    draftClueBody = string.Empty;
+                    draftClueAssetPath = string.Empty;
+                    draftClueTintColor = Color.black;
+                    draftClueTextScale = 1f;
+                    draftClueTextStyle = PalaceClueTextStyle.Normal;
+                    editorStatus = "Creating ink clue.";
+                    RuntimeEventLogger.LogEvent("room_editor.clue", "Started creating a new ink clue.");
                 }
 
                 foreach (var clue in clues)
@@ -217,6 +248,7 @@ namespace VisualEducationSystem.UI
                         draftClueTitle = clue.Title;
                         draftClueBody = clue.BodyText;
                         draftClueAssetPath = clue.AssetPath;
+                        draftClueTintColor = clue.TintColor;
                         draftClueTextScale = clue.TextScale;
                         draftClueTextStyle = clue.TextStyle;
                         editorStatus = $"Editing clue: {clue.Title}";
@@ -234,6 +266,7 @@ namespace VisualEducationSystem.UI
                             draftClueTitle = string.Empty;
                             draftClueBody = string.Empty;
                             draftClueAssetPath = string.Empty;
+                            draftClueTintColor = Color.black;
                             draftClueTextScale = 1f;
                             draftClueTextStyle = PalaceClueTextStyle.Normal;
                         }
@@ -247,9 +280,12 @@ namespace VisualEducationSystem.UI
                 }
 
                 GUILayout.Space(6f);
-                GUILayout.Label(selectedClueType == PalaceClueType.Image
-                    ? (selectedClueId == string.Empty ? "Image Title" : "Edit Image Title")
-                    : (selectedClueId == string.Empty ? "Note Title" : "Edit Note Title"));
+                GUILayout.Label(selectedClueType switch
+                {
+                    PalaceClueType.Image => selectedClueId == string.Empty ? "Image Title" : "Edit Image Title",
+                    PalaceClueType.Ink => selectedClueId == string.Empty ? "Ink Title" : "Edit Ink Title",
+                    _ => selectedClueId == string.Empty ? "Note Title" : "Edit Note Title"
+                });
                 draftClueTitle = GUILayout.TextField(draftClueTitle, 40);
 
                 if (selectedClueType == PalaceClueType.Image)
@@ -268,6 +304,47 @@ namespace VisualEducationSystem.UI
                         RuntimeEventLogger.LogEvent("room_editor.clue", "Cleared image clue path.");
                     }
                     GUILayout.EndHorizontal();
+                }
+                else if (selectedClueType == PalaceClueType.Ink)
+                {
+                    GUILayout.Label("Ink Color");
+                    GUILayout.Label($"Red: {draftClueTintColor.r:F2}");
+                    draftClueTintColor.r = GUILayout.HorizontalSlider(draftClueTintColor.r, 0f, 1f);
+                    GUILayout.Label($"Green: {draftClueTintColor.g:F2}");
+                    draftClueTintColor.g = GUILayout.HorizontalSlider(draftClueTintColor.g, 0f, 1f);
+                    GUILayout.Label($"Blue: {draftClueTintColor.b:F2}");
+                    draftClueTintColor.b = GUILayout.HorizontalSlider(draftClueTintColor.b, 0f, 1f);
+
+                    GUILayout.Space(6f);
+                    GUILayout.Label($"Stroke Thickness: {GetTextScaleLabel(draftClueTextScale)}");
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("Thin", GUILayout.Height(28f)))
+                    {
+                        draftClueTextScale = 0.85f;
+                    }
+
+                    if (GUILayout.Button("Medium", GUILayout.Height(28f)))
+                    {
+                        draftClueTextScale = 1f;
+                    }
+
+                    if (GUILayout.Button("Bold", GUILayout.Height(28f)))
+                    {
+                        draftClueTextScale = 1.25f;
+                    }
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(6f);
+                    GUILayout.Label("Ink Preview");
+                    var previewRect = GUILayoutUtility.GetRect(180f, 60f, GUILayout.ExpandWidth(true));
+                    DrawSolidRect(previewRect, new Color(0.97f, 0.97f, 0.94f, 1f));
+                    GUI.Box(previewRect, string.Empty);
+                    var sampleWidth = Mathf.Lerp(2f, 8f, Mathf.InverseLerp(0.85f, 1.25f, draftClueTextScale));
+                    var previousColor = GUI.color;
+                    GUI.color = draftClueTintColor.a <= 0f ? Color.black : draftClueTintColor;
+                    GUI.DrawTexture(new Rect(previewRect.x + 18f, previewRect.center.y - sampleWidth * 0.5f, previewRect.width - 36f, sampleWidth), Texture2D.whiteTexture, ScaleMode.StretchToFill);
+                    GUI.color = previousColor;
+                    GUI.Label(new Rect(previewRect.x + 12f, previewRect.y + 8f, previewRect.width - 24f, 18f), $"Color sample | Thickness: {GetTextScaleLabel(draftClueTextScale)}", GUI.skin.label);
                 }
                 else
                 {
@@ -313,7 +390,7 @@ namespace VisualEducationSystem.UI
                 }
 
                 if (GUILayout.Button(selectedClueId == string.Empty
-                        ? (selectedClueType == PalaceClueType.Image ? "Save New Image Clue" : "Save New Note Clue")
+                        ? (selectedClueType == PalaceClueType.Image ? "Save New Image Clue" : selectedClueType == PalaceClueType.Ink ? "Save New Ink Clue" : "Save New Note Clue")
                         : "Save Selected Clue", GUILayout.Height(32f)))
                 {
                     if (string.IsNullOrWhiteSpace(draftClueTitle))
@@ -331,6 +408,16 @@ namespace VisualEducationSystem.UI
                         {
                             savedClueId = palaceBootstrap.SaveImageClue(roomTracker.CurrentRoom, selectedClueId, draftClueTitle, draftClueAssetPath);
                         }
+                        else if (selectedClueType == PalaceClueType.Ink)
+                        {
+                            var serializedInk = draftClueBody;
+                            if (!string.IsNullOrWhiteSpace(selectedClueId) && PalaceSessionState.TryGetClue(selectedClueId, out var clue))
+                            {
+                                serializedInk = clue.BodyText;
+                            }
+
+                            savedClueId = palaceBootstrap.SaveInkClue(roomTracker.CurrentRoom, selectedClueId, draftClueTitle, serializedInk, draftClueTintColor, draftClueTextScale);
+                        }
                         else
                         {
                             savedClueId = palaceBootstrap.SaveNoteClue(roomTracker.CurrentRoom, selectedClueId, draftClueTitle, draftClueBody, draftClueTextScale, draftClueTextStyle);
@@ -340,7 +427,7 @@ namespace VisualEducationSystem.UI
                         var wasNewClue = string.IsNullOrWhiteSpace(selectedClueId);
                         selectedClueId = savedClueId;
                         editorStatus = wasNewClue
-                            ? (selectedClueType == PalaceClueType.Image ? "Image clue created." : "Note clue created.")
+                            ? (selectedClueType == PalaceClueType.Image ? "Image clue created." : selectedClueType == PalaceClueType.Ink ? "Ink clue created." : "Note clue created.")
                             : "Clue updated.";
                         RuntimeEventLogger.LogEvent(
                             "room_editor.clue",
@@ -348,7 +435,7 @@ namespace VisualEducationSystem.UI
                     }
                 }
 
-                GUI.enabled = CanPreviewDraftClue();
+                GUI.enabled = selectedClueType != PalaceClueType.Ink && CanPreviewDraftClue();
                 if (GUILayout.Button(selectedClueType == PalaceClueType.Image ? "Preview Image Clue" : "Preview Note Clue", GUILayout.Height(30f)))
                 {
                     previewImageZoom = 1f;
@@ -357,6 +444,34 @@ namespace VisualEducationSystem.UI
                     RuntimeEventLogger.LogEvent("room_editor.preview", $"Opened preview for {(selectedClueType == PalaceClueType.Image ? "image" : "note")} clue draft.");
                 }
                 GUI.enabled = true;
+
+                if (selectedClueType == PalaceClueType.Ink && !string.IsNullOrWhiteSpace(selectedClueId))
+                {
+                    GUILayout.Label("Ink instructions: save the clue, then choose Draw or Erase mode. Draw uses right-hand pinch. Erase uses right-hand fist. Release the gesture to stop. Press Esc to exit ink mode.");
+                    if (GUILayout.Button("Start Ink Drawing", GUILayout.Height(30f)))
+                    {
+                        BeginInkDrawMode(selectedClueId, InkInteractionMode.Draw);
+                        CloseEditor();
+                        return;
+                    }
+
+                    if (GUILayout.Button("Start Ink Erasing", GUILayout.Height(30f)))
+                    {
+                        BeginInkDrawMode(selectedClueId, InkInteractionMode.Erase);
+                        CloseEditor();
+                        return;
+                    }
+
+                    if (GUILayout.Button("Clear Ink Strokes", GUILayout.Height(30f)))
+                    {
+                        if (palaceBootstrap.ClearInkClue(selectedClueId))
+                        {
+                            PalaceSaveManager.SaveCurrentState();
+                            editorStatus = "Ink cleared.";
+                            RuntimeEventLogger.LogEvent("room_editor.clue", $"Cleared ink strokes for clue {selectedClueId}.");
+                        }
+                    }
+                }
 
                 if (!string.IsNullOrWhiteSpace(selectedClueId))
                 {
@@ -487,6 +602,7 @@ namespace VisualEducationSystem.UI
             draftClueTitle = string.Empty;
             draftClueBody = string.Empty;
             draftClueAssetPath = string.Empty;
+            draftClueTintColor = Color.black;
             draftClueTextScale = 1f;
             draftClueTextStyle = PalaceClueTextStyle.Normal;
             isPreviewOpen = false;
@@ -505,6 +621,7 @@ namespace VisualEducationSystem.UI
             draftClueTitle = string.Empty;
             draftClueBody = string.Empty;
             draftClueAssetPath = string.Empty;
+            draftClueTintColor = Color.black;
             draftClueTextScale = 1f;
             draftClueTextStyle = PalaceClueTextStyle.Normal;
             isPreviewOpen = false;
@@ -843,6 +960,32 @@ namespace VisualEducationSystem.UI
                 editorStatus = scaleDelta > 0f ? "Clue enlarged." : "Clue reduced.";
                 RuntimeEventLogger.LogEvent("room_editor.clue", $"Scaled clue {selectedClueId} by delta {scaleDelta:F2}.");
             }
+        }
+
+        public static void BeginInkDrawMode(string clueId, InkInteractionMode mode)
+        {
+            if (string.IsNullOrWhiteSpace(clueId))
+            {
+                return;
+            }
+
+            ActiveInkClueId = clueId;
+            IsInkDrawModeActive = true;
+            ActiveInkMode = mode;
+            RuntimeEventLogger.LogEvent("ink.mode", $"Started ink {mode} mode for clue {clueId}.");
+        }
+
+        public static void EndInkDrawMode()
+        {
+            if (!IsInkDrawModeActive && string.IsNullOrWhiteSpace(ActiveInkClueId))
+            {
+                return;
+            }
+
+            RuntimeEventLogger.LogEvent("ink.mode", $"Ended ink drawing mode for clue {ActiveInkClueId}.");
+            ActiveInkClueId = string.Empty;
+            IsInkDrawModeActive = false;
+            ActiveInkMode = InkInteractionMode.Draw;
         }
     }
 }
